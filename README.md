@@ -7,7 +7,7 @@
 现代浏览器：
 
 1. 使用 iframe `sandbox="allow-scripts"` 属性，创建安全的脚本执行环境
-2. 使用 `postMessage()` 方法 与 `onmessage` 事件与沙箱进行通讯
+2. 使用 `postMessage()` 方法 与 `message` 事件与沙箱进行通讯
 
 老版本 IE：
 
@@ -25,8 +25,10 @@ npm install --save jsonp-sandbox
 
 ``` javascript
 var JSONP = require('jsonp-sandbox');
-JSONP.get('http://api.com/user', function (data) {
-    console.log(data);
+JSONP.get('http://api.com/user', function (error, data) {
+    if (!error) {
+        console.log(data); 
+    }
 });
 ```
 

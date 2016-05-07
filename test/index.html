@@ -5,11 +5,18 @@
 <script src="../index.js"></script>
 </head>
 <body>
+<div>Sandbox: <span id="sandbox">true</span></div>
 <pre id="log"></pre>
 <script>
 JSONP.get('./test-jsonp.js', {
     name: 'jsonp_callback'
-}, function (data) {
+}, function (error, data) {
+
+    if (error) {
+        console.log(error);
+        return;
+    }
+
     console.log(data)
     document.getElementById('log').innerHTML = JSON.stringify(data, null, 4);
 });

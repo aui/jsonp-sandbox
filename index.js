@@ -10,7 +10,6 @@
         this.sandbox.name = 'jsonp-sandbox';
         this.sandbox.style.display = 'none';
         this.sandbox.sandbox = 'allow-scripts';
-        this._ids = [];
 
         (document.body || document.head).appendChild(this.sandbox);
         this._setSandboxSrcodc(this._getSandboxCode());
@@ -31,11 +30,13 @@
         var callbacks = JSONP._callbacks;
 
         if (id && callbacks.hasOwnProperty(id)) {
-            callbacks[id](message.data);
+            callbacks[id](message.error, message.data);
             // 仅执行一次
             delete callbacks[id];
         }
     };
+
+    JSONP._count = 0;
 
 
     JSONP.get = function() {
@@ -54,7 +55,7 @@
         /**
          * 请求数据
          * @param   {String}    URL
-         * @param   {Function}  成功的回调函数
+         * @param   {Function}  回调函数-第一个参数接收错误
          */
         get: function(url, options, callback) {
 
@@ -67,7 +68,9 @@
                 options = {};
             }
 
-            var id = encodeURIComponent(options.name || 'sandbox' + Date.now());
+            JSONP._count ++;
+
+            var id = encodeURIComponent(options.name || 'jsonp' + JSONP._count);
             this._onmessage(id, callback);
             this._postMessage({
                 JSONP_ID: id,
@@ -77,20 +80,6 @@
             });
         },
 
-
-
-        /**
-         * 销毁沙箱
-         */
-        destroy: function() {
-            window.removeEventListener('message', this._onmessage, false);
-            this.sandbox.src = 'about:blank';
-            this.sandbox.srcdoc = '';
-            this.sandbox.parentNode.removeChild(this.sandbox);
-            for (var i = 0; i < this._ids.length; i++) {
-                delete JSONP._callbacks[this._ids[i]];
-            }
-        },
 
         // 设置沙箱预置代码
         _setSandboxSrcodc: function(srcdoc) {
@@ -127,7 +116,8 @@
                         url = url + query;
 
                         var script = document.createElement('script');
-                        script.async = 'async';
+                        //script.async = 'async';
+                        //script.crossorigin = 'anonymous';
 
                         script.onload = script.onreadystatechange = function() {
 
@@ -139,10 +129,14 @@
                                 document.documentElement.removeChild(script);
 
                                 if (callback) {
-                                    callback();
+                                    callback(null);
                                 }
                             }
 
+                        };
+
+                        script.onerror = function() {
+                            callback(new Error('Failed to load: ' + script.src));
                         };
 
                         script.src = url;
@@ -170,7 +164,15 @@
                             delete window[id];
                         };
 
-                        getScript(url, null, '&' + param + '=' + id);
+                        function end(errors) {
+                            if (errors) {
+                                message.error = errors.toString();
+                                postMessageToHost(message);
+                                delete window[id];
+                            }
+                        }
+
+                        getScript(url, end, '&' + param + '=' + id);
                     };
 
 
@@ -199,7 +201,6 @@
         // 监听来自沙箱的消息
         _onmessage: function(id, callback) {
             JSONP._callbacks[id] = callback;
-            this._ids.push(id);
         },
 
         // 向沙箱发送消息
@@ -232,10 +233,10 @@
         window.addEventListener('message', JSONP._onmessage, false);
     } else {
         // IE
-        window.postMessage = function(event) {
+        window.postMessage = function(message) {
             JSONP._onmessage({
                 origin: 'null',
-                data: event
+                data: message
             });
         };
     }
