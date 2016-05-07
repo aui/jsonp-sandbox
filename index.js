@@ -86,12 +86,12 @@ JSONP.prototype = {
         var sandbox = this.sandbox;
         var contentDocument;
 
-        if ('sandbox' in document.createElement('iframe')) {
+        if ('sandbox' in sandbox) {
             sandbox.srcdoc = srcdoc;
         } else {
             contentDocument = sandbox.contentWindow.document;
             contentDocument.open();
-            contentDocument.wiite(srcdoc);
+            contentDocument.write(srcdoc);
             contentDocument.close();
         }
     },
