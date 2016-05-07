@@ -1,4 +1,4 @@
-(function() {
+(function(global) {
 
 'use strict';
 
@@ -227,13 +227,13 @@ if ('onmessage' in window && 'addEventListener' in window) {
 
 
 if (typeof define === 'function') {
-    this.define(function() {
+    define(function() {
         return JSONP;
     });
 } else if (typeof module === 'object') {
     module.exports = JSONP;
 } else {
-    this.JSONP = JSONP;
+    global.JSONP = JSONP;
 }
 
-})();
+})(window);
