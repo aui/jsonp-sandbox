@@ -1,11 +1,7 @@
 {
   "name": "jsonp-sandbox",
-  "version": "1.0.0-beta",
+  "version": "1.0.0-beta2",
   "description": "jsonp sandbox",
-  "main": "src/index.js",
-  "directories": {
-    "test": "test"
-  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
