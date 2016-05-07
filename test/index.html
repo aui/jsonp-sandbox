@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<script src="../src/index.js"></script>
+</head>
+<body>
+<pre id="log"></pre>
+<script>
+new JSONP().get('./test-jsonp.js', {
+    name: 'jsonp_callback'
+}, function (data) {
+    console.log(data)
+    document.getElementById('log').innerHTML = JSON.stringify(data, null, 4);
+});
+</script>
+</body>
+</html>
