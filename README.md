@@ -21,16 +21,16 @@ npm install --save jsonp-sandbox
 
 ## API
 
-`#get(url, options, callback)`
+**JSONP.get(url, options, callback)**
 
 ``` javascript
 var JSONP = require('jsonp-sandbox');
-new JSONP().get('http://api.com/user', function (data) {
+JSONP.get('http://api.com/user', function (data) {
     console.log(data);
 });
 ```
 
-## options
+**options**
 
 * options.name JSONP 指定回调函数名，默认自动生成
 * options.param JSONP 指定 KEY，默认 `callback`
@@ -38,7 +38,7 @@ new JSONP().get('http://api.com/user', function (data) {
 例如：
 
 ``` javascript
-new JSONP().get('http://api.com/users/35', {
+JSONP.get('http://api.com/users/35', {
     name: 'jsonp_001',
     param: 'jsonp_callback'
 })

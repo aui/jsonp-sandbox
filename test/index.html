@@ -7,7 +7,7 @@
 <body>
 <pre id="log"></pre>
 <script>
-new JSONP().get('./test-jsonp.js', {
+JSONP.get('./test-jsonp.js', {
     name: 'jsonp_callback'
 }, function (data) {
     console.log(data)
