@@ -1,4 +1,7 @@
+(function() {
+
 'use strict';
+
 
 function JSONP() {
 
@@ -232,3 +235,5 @@ if (typeof define === 'function') {
 } else {
     this.JSONP = JSONP;
 }
+
+})();
