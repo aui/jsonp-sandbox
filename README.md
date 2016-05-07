@@ -1,5 +1,7 @@
 # jsonp-sandbox
 
+[![NPM Version][https://img.shields.io/npm/v/jsonp-sandbox.svg]][https://npmjs.org/package/jsonp-sandbox]
+
 这是一个 JSONP 沙箱，可以在浏览器中安全的加载跨站 JSONP 脚本。
 
 ## 原理
