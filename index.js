@@ -4,7 +4,7 @@ function JSONP() {
 
     // iframe sandbox @see https://developer.mozilla.org/zh-CN/docs/Web/HTML/Element/iframe
     this.sandbox = document.createElement('iframe');
-    this.sandbox.name = 'jsopn-sandbox';
+    this.sandbox.name = 'jsonp-sandbox';
     this.sandbox.style.display = 'none';
     this.sandbox.sandbox = 'allow-scripts';
     this._setSandboxSrcodc(this._getSandboxCode());
@@ -168,7 +168,7 @@ JSONP.prototype = {
 
 
                 window.onerror = function(message) {
-                    console.error('jsopn-sandbox error:', message);
+                    console.error('jsonp-sandbox error:', message);
                 };
 
             }).toString() +
