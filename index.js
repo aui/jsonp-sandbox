@@ -22,11 +22,12 @@ JSONP._onmessage = function(event) {
         return;
     }
 
-    var id = event.data.JSONP_ID;
+    var message = event.data;
+    var id = message.JSONP_ID;
     var callbacks = JSONP._callbacks;
 
     if (id && callbacks.hasOwnProperty(id)) {
-        callbacks[id](event.data.data);
+        callbacks[id](message.data);
         // 仅执行一次
         delete callbacks[id];
     }
@@ -153,12 +154,16 @@ JSONP.prototype = {
                         delete window[id];
                     };
 
-                    getScript(url, null, '&' + param +'=' + id);
+                    getScript(url, null, '&' + param + '=' + id);
                 };
 
                 // 针对旧版浏览器提供 postMessage 方法
                 if (typeof window.postMessage !== 'function') {
-                    window.postMessage = window.onmessage;
+                    window.postMessage = function(event) {
+                        window.onmessage({
+                            data: event
+                        });
+                    };
                 }
 
 
@@ -210,7 +215,10 @@ if ('onmessage' in window && 'addEventListener' in window) {
 } else {
     // IE
     window.postMessage = function(event) {
-        JSONP._onmessage(event);
+        JSONP._onmessage({
+            origin: 'null',
+            data: event
+        });
     };
 }
 
