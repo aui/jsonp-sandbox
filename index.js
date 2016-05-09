@@ -1,15 +1,17 @@
-(function(global) {
+/*! jsonp-sandbox | https://github.com/aui/jsonp-sandbox */
+(function(window) {
 
     'use strict';
 
 
     function JSONP() {
 
-        // iframe sandbox @see https://developer.mozilla.org/zh-CN/docs/Web/HTML/Element/iframe
         this.sandbox = document.createElement('iframe');
         this.sandbox.style.display = 'none';
-        (document.body || document.head).appendChild(this.sandbox);
+        (document.body || document.documentElement).appendChild(this.sandbox);
         this._setSandboxSrcodc(this._getSandboxCode());
+
+        // iframe sandbox @see https://developer.mozilla.org/zh-CN/docs/Web/HTML/Element/iframe
         this.sandbox.sandbox = 'allow-scripts';
     }
 
@@ -19,11 +21,17 @@
     // 监听所有来自沙箱的消息
     JSONP._onmessage = function(event) {
 
-        if (event.origin !== 'null') {
-            return;
+        var message = event.data;
+
+        // IE
+        if (typeof message === 'string') {
+            try {
+                message = JSON.parse(message);
+            } catch (e) {
+                message = {};
+            }
         }
 
-        var message = event.data;
         var id = message.JSONP_ID;
         var callbacks = JSONP._callbacks;
 
@@ -106,21 +114,84 @@
             }
         },
 
-        // 获取沙箱的预置代码 - 注意此函数不能有外部依赖
+        // 获取沙箱的预置代码
+        // 注意：此函数不能有外部依赖
         _getSandboxCode: function() {
             return '<html>' +
                 '<head>' +
                 '</head>' +
                 '<body>' +
                 '<script>' +
-                '(' + (function() {
+                '(' + (function(window) {
+
+
+                    // 向宿主发送消息
+                    function postMessageToHost(message) {
+                        if (message.error) {
+                            message.error = message.error.toString();
+                        }
+
+                        // IE
+                        if (typeof message == 'object') {
+                            message = JSON.stringify(message);
+                        }
+
+                        window.parent.postMessage(message, '*');
+                    }
+
+
+                    // 接收宿主发送的消息
+                    window.onmessage = function(event) {
+                        var message = event.data;
+
+                        // IE
+                        if (typeof message == 'string') {
+                            message = JSON.parse(message);
+                        }
+
+                        var id = message.JSONP_ID;
+                        var url = message.url;
+                        var param = message.param;
+
+                        // 写入全局函数，接受 JSONP 回调
+                        window[id] = function(data) {
+                            message.data = data;
+                            postMessageToHost(message);
+                            window[id] = null;
+                        };
+
+                        function end(errors) {
+                            if (errors) {
+                                message.error = errors;
+                                postMessageToHost(message);
+                                window[id] = null;
+                            } else if (window[id]) {
+                                message.error = new Error('Wrong format.');
+                                postMessageToHost(message);
+                            }
+                        }
+
+                        getScript(url, end, '&' + param + '=' + id);
+                    };
+
+
+                    // 针对旧版浏览器提供 postMessage 方法
+                    if (typeof window.postMessage !== 'function') {
+                        window.postMessage = function(message) {
+                            // call: IE8
+                            window.onmessage.call(window, {
+                                data: message
+                            });
+                        };
+                    }
+
 
                     // 请求外部脚本
                     function getScript(url, callback) {
 
                         var query = arguments[2] || '';
                         var ts = +new Date();
-                        var ret = url.replace(/([?&])_=[^&]*/, "$1_=" + ts);
+                        var ret = url.replace(/([?&])_=[^&]*/, '$1_=' + ts);
 
 
                         url = ret + ((ret === url) ? (/\?/.test(url) ? '&' : '?') + '_=' + ts : '');
@@ -154,62 +225,13 @@
                     }
 
 
-                    // 向宿主发送消息
-                    function postMessageToHost(message) {
-                        if (message.error) {
-                            message.error = message.error.toString();
-                        }
-                        window.parent.postMessage(message, '*');
-                    }
-
-
-                    // 接收宿主发送的消息
-                    window.onmessage = function(event) {
-                        var message = event.data;
-                        var id = message.JSONP_ID;
-                        var url = message.url;
-                        var param = message.param;
-
-                        // 写入全局函数，接受 JSONP 回调
-                        window[id] = function(data) {
-                            message.data = data;
-                            postMessageToHost(message);
-                            delete window[id];
-                        };
-
-                        function end(errors) {
-                            if (errors) {
-                                message.error = errors;
-                                postMessageToHost(message);
-                                delete window[id];
-                            } else if (window[id]) {
-                                message.error = new Error('Wrong format.');
-                                postMessageToHost(message);
-                            }
-                        }
-
-                        getScript(url, end, '&' + param + '=' + id);
-                    };
-
-
-                    // 针对旧版浏览器提供 postMessage 方法
-                    if (typeof window.postMessage !== 'function') {
-                        window.postMessage = function(event) {
-                            window.onmessage({
-                                data: event
-                            });
-                        };
-                    }
-
-
                     window.onerror = function(message) {
                         console.error('JsonpSandboxError:', message);
                     };
 
 
-
                 }).toString() +
-                ')()' +
+                ')(window)' +
                 '</script>' +
                 '</body>' +
                 '</html>';
@@ -225,6 +247,7 @@
             var that = this;
 
             if (this._sandboxReady || !('srcdoc' in this.sandbox)) {
+                message = JSON.stringify(message);
                 this.sandbox.contentWindow.postMessage(message, '*');
             } else {
                 // 使用 iframe.srcdoc 需要等待加载完毕才可以进行 postMessage 操作
@@ -267,7 +290,8 @@
     } else if (typeof module === 'object') {
         module.exports = JSONP;
     } else {
-        global.JSONP = JSONP;
+        window.JSONP = JSONP;
     }
+
 
 })(window);

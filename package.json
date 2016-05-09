@@ -1,9 +1,10 @@
 {
   "name": "jsonp-sandbox",
-  "version": "1.0.0-beta6",
+  "version": "1.0.0",
   "description": "jsonp sandbox",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "min": "gulp compress"
   },
   "repository": {
     "type": "git",
@@ -19,5 +20,10 @@
   "bugs": {
     "url": "https://github.com/aui/jsonp-sandbox/issues"
   },
-  "homepage": "https://github.com/aui/jsonp-sandbox#readme"
+  "homepage": "https://github.com/aui/jsonp-sandbox#readme",
+  "devDependencies": {
+    "gulp": "^3.9.1",
+    "gulp-rename": "^1.2.2",
+    "gulp-uglify": "^1.5.3"
+  }
 }
