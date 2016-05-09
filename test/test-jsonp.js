@@ -3,4 +3,5 @@ jsonp_callback({
 	weibo: 'http://weibo.com/planeart'
 });
 
-parent.document.getElementById('sandbox').innerHTML = 'false';
+// 模拟恶意脚本修改页面
+top.document.getElementById('sandbox').innerHTML = 'false';
