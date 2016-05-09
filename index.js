@@ -7,12 +7,10 @@
 
         // iframe sandbox @see https://developer.mozilla.org/zh-CN/docs/Web/HTML/Element/iframe
         this.sandbox = document.createElement('iframe');
-        this.sandbox.name = 'jsonp-sandbox';
         this.sandbox.style.display = 'none';
-        this.sandbox.sandbox = 'allow-scripts';
-
         (document.body || document.head).appendChild(this.sandbox);
         this._setSandboxSrcodc(this._getSandboxCode());
+        this.sandbox.sandbox = 'allow-scripts';
     }
 
     // 存储所有回调函数
@@ -68,7 +66,7 @@
                 options = {};
             }
 
-            JSONP._count ++;
+            JSONP._count++;
 
             var id = encodeURIComponent(options.name || 'jsonp' + JSONP._count);
             this._onmessage(id, callback);
@@ -81,12 +79,23 @@
         },
 
 
+        /**
+         * 销毁沙箱
+         */
+        destroy: function() {
+            this.sandbox.src = 'about:blank';
+            this.sandbox.srcdoc = '';
+            this.sandbox.parentNode.removeChild(this.sandbox);
+            this.sandbox = null;
+        },
+
+
         // 设置沙箱预置代码
         _setSandboxSrcodc: function(srcdoc) {
             var sandbox = this.sandbox;
             var contentDocument;
 
-            if ('sandbox' in sandbox) {
+            if ('srcdoc' in sandbox) {
                 sandbox.srcdoc = srcdoc;
             } else {
                 this.sandbox.src = 'about:blank';
@@ -101,6 +110,8 @@
         _getSandboxCode: function() {
             return '<html>' +
                 '<head>' +
+                '</head>' +
+                '<body>' +
                 '<script>' +
                 '(' + (function() {
 
@@ -116,9 +127,8 @@
                         url = url + query;
 
                         var script = document.createElement('script');
-                        //script.async = 'async';
-                        //script.crossorigin = 'anonymous';
 
+                        //script.crossOrigin = true;
                         script.onload = script.onreadystatechange = function() {
 
                             var isReady = !script.readyState || /loaded|complete/.test(script.readyState);
@@ -126,7 +136,7 @@
                             if (isReady) {
 
                                 script.onload = script.onreadystatechange = null;
-                                document.documentElement.removeChild(script);
+                                document.body.removeChild(script);
 
                                 if (callback) {
                                     callback(null);
@@ -140,12 +150,15 @@
                         };
 
                         script.src = url;
-                        document.documentElement.appendChild(script);
+                        document.body.appendChild(script);
                     }
 
 
                     // 向宿主发送消息
                     function postMessageToHost(message) {
+                        if (message.error) {
+                            message.error = message.error.toString();
+                        }
                         window.parent.postMessage(message, '*');
                     }
 
@@ -166,9 +179,12 @@
 
                         function end(errors) {
                             if (errors) {
-                                message.error = errors.toString();
+                                message.error = errors;
                                 postMessageToHost(message);
                                 delete window[id];
+                            } else if (window[id]) {
+                                message.error = new Error('Wrong format.');
+                                postMessageToHost(message);
                             }
                         }
 
@@ -187,14 +203,15 @@
 
 
                     window.onerror = function(message) {
-                        console.error('jsonp-sandbox error:', message);
+                        console.error('JsonpSandboxError:', message);
                     };
+
+
 
                 }).toString() +
                 ')()' +
                 '</script>' +
-                '</head>' +
-                '<body></body>' +
+                '</body>' +
                 '</html>';
         },
 
@@ -206,18 +223,19 @@
         // 向沙箱发送消息
         _postMessage: function(message) {
             var that = this;
-            if (this._isReady) {
+
+            if (this._sandboxReady || !('srcdoc' in this.sandbox)) {
                 this.sandbox.contentWindow.postMessage(message, '*');
             } else {
-                // iframe 加载完毕才可以进行 postMessage 操作
+                // 使用 iframe.srcdoc 需要等待加载完毕才可以进行 postMessage 操作
                 if (!this.sandbox.onload) {
                     this._queue = [];
                     this.sandbox.onload = function() {
-                        that._isReady = true;
+                        that._sandboxReady = true;
                         for (var i = 0; i < that._queue.length; i++) {
                             that._postMessage(that._queue[i]);
                         }
-                        delete this.sandbox.onload;
+                        delete that.sandbox.onload;
                         delete that._queue;
                     };
                 }
