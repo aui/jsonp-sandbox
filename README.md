@@ -2,7 +2,7 @@
 
 [![NPM Version][npm-image]][npm-url]
 
-这是一个 JSONP 沙箱，可以在浏览器中安全的加载跨站 JSONP 脚本。
+这是一个基于浏览器标准实现的 JSONP 加载器，可以在浏览器中安全的加载跨站 JSONP 脚本，有效杜绝恶意脚本攻击。
 
 ## 原理
 
@@ -11,9 +11,9 @@
 1. 使用 iframe `sandbox="allow-scripts"` 属性，创建安全的脚本执行环境
 2. 使用 `postMessage()` 方法 与 `message` 事件与沙箱进行通讯
 
-老版本 IE：
+老版本 IE（<=8）：
 
-1. IE 不支持 `sandbox` 属性，使用降级方案
+1. 不支持 `sandbox` 特性，使用降级方案，仅保证数据获取功能
 
 ## 安装
 
