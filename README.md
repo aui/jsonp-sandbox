@@ -2,7 +2,7 @@
 
 [![NPM Version][npm-image]][npm-url]
 
-这是一个基于浏览器标准实现的 JSONP 加载器，可以在浏览器中安全的加载跨站 JSONP 脚本，在 JSONP 服务器被攻陷的情况下能够屏蔽恶意脚本对页面的访问。
+这是一个基于浏览器标准实现的 JSONP 运行沙箱，可以在沙箱环境中加载跨站 JSONP 脚本，杜绝恶意脚本攻击。
 
 ## 原理
 
@@ -23,7 +23,7 @@
 <script src="dest/jsonp-sandbox.min.js"></script>
 ```
 
-通过 Npm 安装：
+或通过 Npm 安装：
 
 ``` shell
 npm install --save jsonp-sandbox
