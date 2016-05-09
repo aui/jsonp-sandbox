@@ -4,7 +4,7 @@
     'use strict';
 
 
-    function JSONP() {
+    function Sandbox() {
 
         this.sandbox = document.createElement('iframe');
         this.sandbox.style.display = 'none';
@@ -16,10 +16,10 @@
     }
 
     // 存储所有回调函数
-    JSONP._callbacks = {};
+    Sandbox._callbacks = {};
 
     // 监听所有来自沙箱的消息
-    JSONP._onmessage = function(event) {
+    Sandbox._onmessage = function(event) {
 
         var message = event.data;
 
@@ -33,7 +33,7 @@
         }
 
         var id = message.JSONP_ID;
-        var callbacks = JSONP._callbacks;
+        var callbacks = Sandbox._callbacks;
 
         if (id && callbacks.hasOwnProperty(id)) {
             callbacks[id](message.error, message.data);
@@ -42,26 +42,19 @@
         }
     };
 
-    JSONP._count = 0;
+    Sandbox._count = 0;
 
 
-    JSONP.get = function() {
-        if (!JSONP._sandbox) {
-            JSONP._sandbox = new JSONP();
-        }
-        JSONP._sandbox.get.apply(JSONP._sandbox, arguments);
-    };
+    Sandbox.prototype = {
 
-
-    JSONP.prototype = {
-
-        constructor: JSONP,
+        constructor: Sandbox,
 
 
         /**
          * 请求数据
          * @param   {String}    URL
-         * @param   {Function}  回调函数-第一个参数接收错误
+         * @param   {Object}    可选项
+         * @param   {Function}  回调函数-参数：errors, data
          */
         get: function(url, options, callback) {
 
@@ -74,11 +67,11 @@
                 options = {};
             }
 
-            JSONP._count++;
+            Sandbox._count++;
 
-            var id = encodeURIComponent(options.name || 'jsonp' + JSONP._count);
+            var id = encodeURIComponent(options.name || 'jsonp' + Sandbox._count);
 
-            JSONP._callbacks[id] = callback;
+            Sandbox._callbacks[id] = callback;
             this._postMessage({
                 JSONP_ID: id,
                 param: options.param || 'callback',
@@ -267,16 +260,27 @@
 
     if ('onmessage' in window && 'addEventListener' in window) {
         // 现代浏览器
-        window.addEventListener('message', JSONP._onmessage, false);
+        window.addEventListener('message', Sandbox._onmessage, false);
     } else {
         // IE
         window.postMessage = function(message) {
-            JSONP._onmessage({
+            Sandbox._onmessage({
                 origin: 'null',
                 data: message
             });
         };
     }
+
+
+    var JSONP = {
+        get: function() {
+            if (!JSONP._sandbox) {
+                JSONP._sandbox = new Sandbox();
+            }
+            JSONP._sandbox.get.apply(JSONP._sandbox, arguments);
+        },
+        Sandbox: Sandbox
+    };
 
 
     if (typeof define === 'function') {
