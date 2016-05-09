@@ -77,7 +77,8 @@
             JSONP._count++;
 
             var id = encodeURIComponent(options.name || 'jsonp' + JSONP._count);
-            this._onmessage(id, callback);
+
+            JSONP._callbacks[id] = callback;
             this._postMessage({
                 JSONP_ID: id,
                 param: options.param || 'callback',
@@ -235,11 +236,6 @@
                 '</script>' +
                 '</body>' +
                 '</html>';
-        },
-
-        // 监听来自沙箱的消息
-        _onmessage: function(id, callback) {
-            JSONP._callbacks[id] = callback;
         },
 
         // 向沙箱发送消息
