@@ -3,6 +3,10 @@
 
     'use strict';
 
+    // 标识通讯 token，避免安全漏洞
+    var _token = Math.random();
+    var _count = 0;
+
 
     function Sandbox() {
 
@@ -32,17 +36,16 @@
             }
         }
 
-        var id = message.JSONP_ID;
+        var token = message.token;
+        var id = message.value;
         var callbacks = Sandbox._callbacks;
 
-        if (id && callbacks.hasOwnProperty(id)) {
+        if (token === _token && callbacks.hasOwnProperty(id)) {
             callbacks[id](message.error, message.data);
             // 仅执行一次
             delete callbacks[id];
         }
     };
-
-    Sandbox._count = 0;
 
 
     Sandbox.prototype = {
@@ -67,14 +70,15 @@
                 options = {};
             }
 
-            Sandbox._count++;
+            _count++;
 
-            var id = encodeURIComponent(options.name || 'jsonp' + Sandbox._count);
+            var id = encodeURIComponent(options.value || 'jsonp' + _count);
 
             Sandbox._callbacks[id] = callback;
             this._postMessage({
-                JSONP_ID: id,
-                param: options.param || 'callback',
+                token: _token,
+                value: id,
+                key: options.key || 'callback',
                 data: null,
                 url: url
             });
@@ -143,9 +147,9 @@
                             message = JSON.parse(message);
                         }
 
-                        var id = message.JSONP_ID;
+                        var id = message.value;
                         var url = message.url;
-                        var param = message.param;
+                        var key = message.key;
 
                         // 写入全局函数，接受 JSONP 回调
                         window[id] = function(data) {
@@ -165,7 +169,7 @@
                             }
                         }
 
-                        getScript(url, end, '&' + param + '=' + id);
+                        getScript(url, end, '&' + key + '=' + id);
                     };
 
 

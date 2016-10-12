@@ -44,24 +44,23 @@ JSONP.get('http://api.com/user', function (error, data) {
 
 **options**
 
-* options.name JSONP 指定回调函数名，默认自动生成
-* options.param JSONP 指定 KEY，默认 `callback`
+* options.value JSONP 指定回调函数名，默认自动生成
+* options.key JSONP 指定 KEY，默认 `callback`
 
 例如：
 
 ``` javascript
 JSONP.get('http://api.com/users/35', {
-    name: 'jsonp_001',
-    param: 'jsonp_callback'
+    value: 'jsonp_001',
+    key: 'callback'
 })
 ```
 
 最终请求出去的 URL 类似：
 
 ```
-http://api.com/users/35?jsonp_callback=jsonp_001
+http://api.com/users/35?callback=jsonp_001
 ```
-
 
 [npm-image]: https://img.shields.io/npm/v/jsonp-sandbox.svg
 [npm-url]: https://npmjs.org/package/jsonp-sandbox
