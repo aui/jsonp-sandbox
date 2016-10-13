@@ -68,5 +68,23 @@ JSONP.get('http://api.com/users/35', {
 http://api.com/users/35?callback=jsonp_001
 ```
 
+## 演示
+
+[xss.js](xss.js) 是一段模拟的恶意 JSONP 脚本：
+
+```javascript
+jsonp_callback({
+    name: '糖饼',
+    weibo: 'http://weibo.com/planeart'
+});
+
+// 模拟恶意脚本修改页面
+top.document.getElementById('sandbox').innerHTML = 'false';
+```
+
+使用 jsonp-sandbox 安全加载 [xss.js](xss.js)：
+
+<https://jsbin.com/yomiduwoso/edit?html,output>
+
 [npm-image]: https://img.shields.io/npm/v/jsonp-sandbox.svg
 [npm-url]: https://npmjs.org/package/jsonp-sandbox
