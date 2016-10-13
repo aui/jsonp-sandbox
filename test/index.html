@@ -2,23 +2,24 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-<script src="../dest/jsonp-sandbox.min.js"></script>
+<script src="../index.js"></script>
 </head>
 <body>
-<div>Sandbox: <span id="sandbox">true</span></div>
 <pre id="log"></pre>
 <script>
-JSONP.get('./test-jsonp.js', {
-    value: 'jsonp_callback'
-}, function (error, data) {
-
-    if (error) {
-        console.log(error);
-        return;
+JSONP.get({
+    url: './index.js',
+    value: 'jsonp_callback',
+    data: {
+        user: 'aui',
+        tag: 'fe'
+    },
+    success: function (data) {
+        document.getElementById('log').innerHTML = JSON.stringify(data, null, 4);
+    },
+    error: function(errors) {
+        console.error(errors);
     }
-
-    console.log(data)
-    document.getElementById('log').innerHTML = JSON.stringify(data, null, 4);
 });
 </script>
 </body>
