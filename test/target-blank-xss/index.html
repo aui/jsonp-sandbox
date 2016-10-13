@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>test</title>
+    <script src="../../index.js"></script>
+</head>
+<body>
+    <a href="test.html" target="_blank">link</a>
+    <script>
+        window.onmessage = function(event) {
+            event = event || window.event;
+            console.log('message', event.data);
+        }
+    </script>
+</body>
+</html>

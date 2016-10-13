@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<script src="../index.js"></script>
+</head>
+<body>
+<div>Sandbox: <span id="sandbox">true</span></div>
+<pre id="log"></pre>
+<script>
+JSONP.get({
+    url: './xss.js',
+    value: 'jsonp_callback',
+    success: function (data) {
+        document.getElementById('log').innerHTML = JSON.stringify(data, null, 4);
+    },
+    error: function(errors) {
+        console.error(errors);
+    }
+});
+</script>
+</body>
+</html>
