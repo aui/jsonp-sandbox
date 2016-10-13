@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>test</title>
+</head>
+<body>
+    <script>
+        var data = {
+            token: Math.random(),
+            value: 'jsonp1',
+            key: 'callback',
+            data: null,
+            url: 'test.js'
+        };
+        window.opener.postMessage(JSON.stringify(data), '*');
+    </script>
+</body>
+</html>

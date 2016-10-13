@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<script src="../index.js"></script>
+</head>
+<body>
+<pre id="log"></pre>
+<script>
+var number = 0;
+JSONP.get({
+    url: './index.js',
+    value: 'jsonp_callback',
+    data: {
+        user: 'aui',
+        tag: 'fe'
+    },
+    success: function (data) {
+        number ++;
+        document.getElementById('log').innerHTML = number;
+    },
+    error: function(errors) {
+        console.error(errors);
+    }
+});
+JSONP.get({
+    url: './index.js',
+    value: 'jsonp_callback',
+    data: {
+        user: 'aui',
+        tag: 'fe'
+    },
+    success: function (data) {
+        number ++;
+        document.getElementById('log').innerHTML = number;
+    },
+    error: function(errors) {
+        console.error(errors);
+    }
+});
+
+setTimeout(function() {
+    JSONP.get({
+        url: './index.js',
+        value: 'jsonp_callback',
+        data: {
+            user: 'aui',
+            tag: 'fe'
+        },
+        success: function (data) {
+            number ++;
+            document.getElementById('log').innerHTML = number;
+        },
+        error: function(errors) {
+            console.error(errors);
+        }
+    });
+}, 1500);
+</script>
+</body>
+</html>

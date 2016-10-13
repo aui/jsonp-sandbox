@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<script src="../index.js"></script>
+</head>
+<body>
+<pre id="log"></pre>
+<script>
+JSONP.get({
+    url: './404.js',
+    error: function(errors) {
+        document.getElementById('log').innerHTML = errors;
+    }
+});
+</script>
+</body>
+</html>
