@@ -4,16 +4,23 @@
     'use strict';
 
     // 标识通讯 token，避免安全漏洞
-    var _token = Math.random();
+    // target="_blank" 弹出的页面可以拿到 opener，从而有机会伪造消息
+    // @see http://www.zcfy.cc/article/1178
+    var _token = '#' + Math.random();
     var _count = 0;
+
+
+    function noop() {}
+
 
 
     function Sandbox() {
 
         this.sandbox = document.createElement('iframe');
         this.sandbox.style.display = 'none';
-        (document.body || document.documentElement).appendChild(this.sandbox);
         this._setSandboxSrcodc(this._getSandboxCode());
+        (document.body || document.documentElement).appendChild(this.sandbox);
+
 
         // iframe sandbox @see https://developer.mozilla.org/zh-CN/docs/Web/HTML/Element/iframe
         this.sandbox.sandbox = 'allow-scripts';
@@ -22,26 +29,33 @@
     // 存储所有回调函数
     Sandbox._callbacks = {};
 
-    // 监听所有来自沙箱的消息
+    // 处理消息
     Sandbox._onmessage = function(event) {
+        // IE8
+        event = event || window.event;
 
         var message = event.data;
 
         // IE
-        if (typeof message === 'string') {
+        if (window.JSON && typeof message === 'string') {
             try {
+                // IE8、IE9 只支持传递字符串
                 message = JSON.parse(message);
             } catch (e) {
                 message = {};
             }
         }
 
-        var token = message.token;
-        var id = message.value;
+        var id = message.id;
         var callbacks = Sandbox._callbacks;
 
-        if (token === _token && callbacks.hasOwnProperty(id)) {
-            callbacks[id](message.error, message.data);
+        if (callbacks.hasOwnProperty(id)) {
+            callbacks = callbacks[id];
+            if (message.error) {
+                callbacks[1](message.error);
+            } else {
+                callbacks[0](message.response);
+            }
             // 仅执行一次
             delete callbacks[id];
         }
@@ -55,32 +69,42 @@
 
         /**
          * 请求数据
-         * @param   {String}    URL
-         * @param   {Object}    可选项
-         * @param   {Function}  回调函数-参数：errors, data
          */
-        get: function(url, options, callback) {
+        get: function(options) {
 
-            if ('function' == typeof options) {
-                callback = options;
-                options = {};
+            if (typeof options === 'string') {
+                options = {
+                    url: options,
+                    success: arguments[1],
+                    error: arguments[2]
+                };
             }
 
-            if (!options) {
-                options = {};
+            var url = options.url;
+            var key = options.key || 'callback';
+            var value = options.value || 'jsonp' + _count;
+            var success = options.success || noop;
+            var error = options.error || noop;
+            var data = options.data || {};
+
+            var encode = window.encodeURIComponent;
+
+            var param = [];
+            for (var k in data) {
+                param.push(encode(k) + '=' + encode(data[k]));
             }
+            param = param.join('&');
+            url = /\?/.test(url) ? url + param : url + '?' + param;
 
             _count++;
+            var id = _count + _token;
+            Sandbox._callbacks[id] = [success, error];
 
-            var id = encodeURIComponent(options.value || 'jsonp' + _count);
-
-            Sandbox._callbacks[id] = callback;
             this._postMessage({
-                token: _token,
-                value: id,
-                key: options.key || 'callback',
-                data: null,
-                url: url
+                id: id,
+                url: url,
+                value: value,
+                key: key
             });
         },
 
@@ -129,8 +153,8 @@
                             message.error = message.error.toString();
                         }
 
-                        // IE
-                        if (typeof message == 'object') {
+                        if (window.JSON) {
+                            // IE8、IE9 只支持传递字符串
                             message = JSON.stringify(message);
                         }
 
@@ -138,46 +162,52 @@
                     }
 
 
-                    // 接收宿主发送的消息
+                    // 接收来自宿主的消息
                     window.onmessage = function(event) {
+                        // IE8
+                        event = event || window.event;
+
                         var message = event.data;
 
-                        // IE
-                        if (typeof message == 'string') {
+                        if (window.JSON) {
+                            // IE8、IE9 只支持传递字符串
                             message = JSON.parse(message);
                         }
 
-                        var id = message.value;
+                        var value = message.value;
                         var url = message.url;
                         var key = message.key;
 
-                        // 写入全局函数，接受 JSONP 回调
-                        window[id] = function(data) {
-                            message.data = data;
-                            postMessageToHost(message);
-                            window[id] = null;
+                        // 写入全局函数，跨站脚本将会运行此函数
+                        window[value] = function(data) {
+                            message.response = data;
+                            // IE delete 会报“SCRIPT445: 对象不支持此操作”
+                            window[value] = null;
                         };
 
+
+                        // 处理错误
                         function end(errors) {
+                            if (!errors && typeof message.response === 'undefined') {
+                                errors = new Error('Wrong format.');
+                            }
+
                             if (errors) {
                                 message.error = errors;
-                                postMessageToHost(message);
-                                window[id] = null;
-                            } else if (window[id]) {
-                                message.error = new Error('Wrong format.');
-                                postMessageToHost(message);
                             }
+
+                            postMessageToHost(message);
                         }
 
-                        getScript(url, end, '&' + key + '=' + id);
+                        getScript(url, end, '&' + encodeURIComponent(key) + '=' + encodeURIComponent(value));
                     };
 
 
                     // 针对旧版浏览器提供 postMessage 方法
-                    if (typeof window.postMessage !== 'function') {
+                    // IE8: typeof window.postMessage === 'object'
+                    if (!window.postMessage) {
                         window.postMessage = function(message) {
-                            // call: IE8
-                            window.onmessage.call(window, {
+                            window.onmessage({
                                 data: message
                             });
                         };
@@ -224,7 +254,7 @@
 
 
                     window.onerror = function(message) {
-                        console.error('JsonpSandboxError:', message);
+                        console.warn('JSONP.Sandbox:', message);
                     };
 
 
@@ -240,7 +270,10 @@
             var that = this;
 
             if (this._sandboxReady || !('srcdoc' in this.sandbox)) {
-                message = JSON.stringify(message);
+                if (window.JSON) {
+                    // IE8、IE9 只支持传递字符串
+                    message = JSON.stringify(message);
+                }
                 this.sandbox.contentWindow.postMessage(message, '*');
             } else {
                 // 使用 iframe.srcdoc 需要等待加载完毕才可以进行 postMessage 操作
@@ -262,14 +295,18 @@
     };
 
 
-    if ('onmessage' in window && 'addEventListener' in window) {
+    if (window.postMessage) {
         // 现代浏览器
-        window.addEventListener('message', Sandbox._onmessage, false);
-    } else {
-        // IE
+        if (window.addEventListener) {
+            window.addEventListener('message', Sandbox._onmessage, false);
+            // IE8
+        } else {
+            window.attachEvent('onmessage', Sandbox._onmessage);
+        }
+    } else if (!window.postMessage) {
+        // <IE8
         window.postMessage = function(message) {
             Sandbox._onmessage({
-                origin: 'null',
                 data: message
             });
         };

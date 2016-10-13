@@ -2,7 +2,9 @@
 
 [![NPM Version][npm-image]][npm-url]
 
-这是一个基于浏览器标准实现的 JSONP 运行沙箱，可以在沙箱环境中加载跨站 JSONP 脚本，杜绝恶意脚本攻击。
+jsonp-sandbox 是一个基于浏览器标准实现的 `JSONP` 运行沙箱，通过它可以安全的加载 `JSONP`。
+
+> JSONP 是一个业界广为使用的跨域获取数据的解决方案，它原理是加载动态生产的 `script` 内容而实现跨域。由于实现机制，JSONP 很容产生安全问题，例如脚本被黑客或者运营商劫持等。
 
 ## 原理
 
@@ -13,7 +15,7 @@
 
 老版本 IE（\<=8）：
 
-1. 不支持 `sandbox` 特性，使用降级方案，仅保证数据获取功能
+1. 由于 iframe 不支持 `sandbox` 特性，防御会降级
 
 ## 安装
 
@@ -31,21 +33,25 @@ npm install --save jsonp-sandbox
 
 ## API
 
-**JSONP.get(url, options, callback)**
+**JSONP.get(url, success, error)**
 
 ``` javascript
 var JSONP = require('jsonp-sandbox');
-JSONP.get('http://api.com/user', function (error, data) {
-    if (!error) {
-        console.log(data); 
-    }
+JSONP.get('http://api.com/user', function (data) {
+    console.log(data);
 });
 ```
 
+**JSONP.get(options)**
+
 **options**
 
-* options.value JSONP 指定回调函数名，默认自动生成
-* options.key JSONP 指定 KEY，默认 `callback`
+* `url` 请求的 URL
+* `value` JSONP 指定回调函数名，默认自动生成
+* `key` JSONP 指定 KEY，默认 `callback`
+* `success` 成功回调
+* `error` 失败回调
+* `data` URL 附加的请求数据
 
 例如：
 

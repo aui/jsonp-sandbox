@@ -2,19 +2,17 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-<script src="../dest/jsonp-sandbox.min.js"></script>
+<script src="../index.js"></script>
 </head>
 <body>
 <pre id="log"></pre>
 <script>
-JSONP.get('./jsonp-wrong-format.js', function (error, data) {
-
-    if (error) {
-        console.log(error);
-        document.getElementById('log').innerHTML = error;
-        return;
+JSONP.get({
+    url: './jsonp-wrong-format.js',
+    error: function(errors) {
+        console.error(errors);
+        document.getElementById('log').innerHTML = errors;
     }
-
 });
 </script>
 </body>
