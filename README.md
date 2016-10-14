@@ -2,7 +2,7 @@
 
 [![NPM Version][npm-image]][npm-url]
 
-jsonp-sandbox 是一个基于浏览器标准实现的 `JSONP` 运行沙箱，通过它可以安全的加载 `JSONP`。
+jsonp-sandbox 是一个 `JSONP` 运行沙箱，通过它可以安全的加载 `JSONP`。
 
 > JSONP 是一个业界广为使用的跨域获取数据的解决方案，它原理是加载动态生产的 `script` 内容而实现跨域。由于实现机制，JSONP 很容产生安全问题，例如脚本被黑客或者运营商劫持等。
 
@@ -13,9 +13,9 @@ jsonp-sandbox 是一个基于浏览器标准实现的 `JSONP` 运行沙箱，通
 1. 使用 iframe `sandbox="allow-scripts"` 属性，创建安全的脚本执行环境
 2. 使用 `postMessage()` 方法 与 `message` 事件与沙箱进行通讯
 
-老版本 IE（\<=8）：
+老版本 IE（\<=9）：
 
-1. 由于 iframe 不支持 `sandbox` 特性，防御会降级
+1. 使用**黑魔法**重写 iframe 全局对象，使得与父页面彻底隔离
 
 ## 安装
 
@@ -70,19 +70,23 @@ http://api.com/users/35?callback=jsonp_001
 
 ## 演示
 
-[xss.js](xss.js) 是一段模拟的恶意 JSONP 脚本：
+[xss.js](https://cdn.rawgit.com/aui/jsonp-sandbox/master/test/xss.js) 是一段包含的恶意代码的 JSONP 脚本，使用 jsonp-sandbox 防御：
 
 ```javascript
-jsonp_callback({
-    name: '糖饼',
-    weibo: 'http://weibo.com/planeart'
+document.cookie = 'hello world';
+
+JSONP.get({
+    url: 'https://cdn.rawgit.com/aui/jsonp-sandbox/master/test/xss.js',
+    value: 'jsonp_callback',
+    success: function (data) {
+        console.log(data);
+    },
+    error: function(errors) {
+        console.error(errors);
+    }
 });
-
-// 模拟恶意脚本修改页面
-top.document.getElementById('sandbox').innerHTML = 'false';
+</script>
 ```
-
-使用 jsonp-sandbox 安全加载 [xss.js](xss.js)：
 
 <https://jsbin.com/yomiduwoso/edit?html,output>
 
