@@ -8,6 +8,8 @@
 <div>Sandbox: <span id="sandbox">true</span></div>
 <pre id="log"></pre>
 <script>
+document.cookie = 'hello world';
+
 JSONP.get({
     url: './xss.js',
     value: 'jsonp_callback',
