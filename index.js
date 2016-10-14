@@ -8,10 +8,7 @@
     // @see http://www.zcfy.cc/article/1178
     var _token = '#' + Math.random();
     var _count = 0;
-
-
-    function noop() {}
-
+    var _hasPostMessage = window.postMessage && window.JSON;
 
 
     function Sandbox() {
@@ -91,6 +88,8 @@
             _count++;
             var id = _count + _token;
             Sandbox._callbacks[id] = [success, error];
+
+            function noop() {}
 
             this._postMessage({
                 id: id,
@@ -182,7 +181,9 @@
                 '</head>' +
                 '<body>' +
                 '<script>' +
-                '(' + (function(window, parent, execScript, JSON, Document, document, body, createElement) {
+                '(' + (function(window, parent, execScript, postMessage, JSON, Document, document, body, createElement) {
+
+                    var hasPostMessage = postMessage && JSON;
 
                     // IE6-IE9 不支持 sandbox
                     // 采用改写全局对象的方式来来模拟：避免拿到父窗口句柄
@@ -225,7 +226,11 @@
                             message = JSON.stringify(message);
                         }
 
-                        parent.postMessage(message, '*');
+                        if (hasPostMessage) {
+                            parent.postMessage(message, '*');
+                        } else {
+                            parent.__postMessage__(message, '*');
+                        }
                     }
 
 
@@ -272,7 +277,7 @@
 
                     // 针对旧版浏览器提供 postMessage 方法
                     // IE8: typeof window.postMessage === 'object'
-                    if (!window.postMessage) {
+                    if (!hasPostMessage) {
                         window.postMessage = function(message) {
                             window.onmessage({
                                 data: message
@@ -325,7 +330,7 @@
                     };
 
                 }).toString() +
-                ')('+ ['window', 'parent', 'window.execScript', 'window.JSON', 'window.Document',
+                ')('+ ['window', 'parent', 'window.execScript', 'window.postMessage', 'window.JSON', 'window.Document',
                     'document', 'document.body', 'document.createElement'].join(',') +')' +
                 '</script>' +
                 '</body>' +
@@ -334,7 +339,7 @@
     };
 
 
-    if (window.postMessage) {
+    if (_hasPostMessage) {
         // 现代浏览器
         if (window.addEventListener) {
             window.addEventListener('message', Sandbox._onmessage, false);
@@ -342,9 +347,9 @@
         } else {
             window.attachEvent('onmessage', Sandbox._onmessage);
         }
-    } else if (!window.postMessage) {
+    } else {
         // <IE8
-        window.postMessage = function(message) {
+        window.__postMessage__ = function(message) {
             Sandbox._onmessage({
                 data: message
             });
