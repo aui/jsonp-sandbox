@@ -53,7 +53,6 @@ try {
     sandbox = false;
 } catch(e) {}
 
-// 模拟恶意脚本盗取 cookie
 if (sandbox) {
     jsonp_callback({
         name: '糖饼',
