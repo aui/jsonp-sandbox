@@ -8,6 +8,8 @@ jsonp-sandbox 是一个 `JSONP` 运行沙箱，通过它可以安全的加载 `J
 
 ## 原理
 
+构造与父页面隔离的 iframe 环境来加载 `JSONP` 脚本，这个环境不允许使用 `parent` 与 `document.cookie` 等危险属性。沙箱实现原理：
+
 现代浏览器：
 
 1. 使用 iframe `sandbox="allow-scripts"` 属性，创建安全的脚本执行环境
@@ -70,13 +72,11 @@ http://api.com/users/35?callback=jsonp_001
 
 ## 演示
 
-[xss.js](https://cdn.rawgit.com/aui/jsonp-sandbox/master/test/xss.js) 是一段包含的恶意代码的 JSONP 脚本，使用 jsonp-sandbox 防御：
-
 ```javascript
 document.cookie = 'hello world';
 
 JSONP.get({
-    url: 'https://cdn.rawgit.com/aui/jsonp-sandbox/master/test/xss.js',
+    url: 'https://jsbin.com/yolipicodo/edit?html,output',
     value: 'jsonp_callback',
     success: function (data) {
         console.log(data);
@@ -88,7 +88,9 @@ JSONP.get({
 </script>
 ```
 
-<https://jsbin.com/yomiduwoso/edit?html,output>
+[在线运行](https://jsbin.com/yolipicodo/edit?html,output)
+
+示例中的 [xss.js](https://cdn.rawgit.com/aui/jsonp-sandbox/master/test/xss.js) 是一段包含的恶意代码的 JSONP 脚本，使用 jsonp-sandbox 可以安全的加载它。
 
 [npm-image]: https://img.shields.io/npm/v/jsonp-sandbox.svg
 [npm-url]: https://npmjs.org/package/jsonp-sandbox
