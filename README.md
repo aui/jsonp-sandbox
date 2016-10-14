@@ -76,7 +76,7 @@ http://api.com/users/35?callback=jsonp_001
 document.cookie = 'hello world';
 
 JSONP.get({
-    url: 'https://jsbin.com/yolipicodo/edit?html,output',
+    url: 'https://rawgit.com/aui/jsonp-sandbox/master/test/xss.js',
     value: 'jsonp_callback',
     success: function (data) {
         console.log(data);
@@ -88,9 +88,9 @@ JSONP.get({
 </script>
 ```
 
-[在线运行](https://jsbin.com/yolipicodo/edit?html,output)
+[在线运行](https://rawgit.com/aui/jsonp-sandbox/master/test/xss.html)
 
-示例中的 [xss.js](https://cdn.rawgit.com/aui/jsonp-sandbox/master/test/xss.js) 是一段包含的恶意代码的 JSONP 脚本，使用 jsonp-sandbox 可以安全的加载它。
+示例中的 [xss.js](https://rawgit.com/aui/jsonp-sandbox/master/test/xss.js) 是一段包含的恶意代码的 JSONP 脚本，使用 jsonp-sandbox 可以安全的加载它。
 
 [npm-image]: https://img.shields.io/npm/v/jsonp-sandbox.svg
 [npm-url]: https://npmjs.org/package/jsonp-sandbox
