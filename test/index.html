@@ -21,6 +21,10 @@ JSONP.get({
         console.error(errors);
     }
 });
+
+window.onmessage = function(event) {
+    console.log(event);
+};
 </script>
 </body>
 </html>

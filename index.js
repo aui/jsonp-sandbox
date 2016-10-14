@@ -15,15 +15,7 @@
 
 
     function Sandbox() {
-
-        this.sandbox = document.createElement('iframe');
-        this.sandbox.style.display = 'none';
-        this._setSandboxSrcodc(this._getSandboxCode());
-        (document.body || document.documentElement).appendChild(this.sandbox);
-
-
-        // iframe sandbox @see https://developer.mozilla.org/zh-CN/docs/Web/HTML/Element/iframe
-        this.sandbox.sandbox = 'allow-scripts';
+        this.sandbox = this._createSandbox();
     }
 
     // 存储所有回调函数
@@ -120,21 +112,67 @@
         },
 
 
-        // 设置沙箱预置代码
-        _setSandboxSrcodc: function(srcdoc) {
-            var sandbox = this.sandbox;
-            var contentDocument;
+        // 创建沙箱
+        _createSandbox: function() {
+            var sandbox = document.createElement('iframe');
+            var target = document.body || document.documentElement;
+
+            sandbox.style.display = 'none';
+            target.appendChild(sandbox);
+
+            var srcdoc = this._getSandboxCode();
+
+            // 必须在 sandbox='allow-scripts' 设置之前拿到引用，否则 IE10/Edge 会拒绝访问
+            var contentDocument = sandbox.contentWindow.document;
+
+            // iframe sandbox @see https://developer.mozilla.org/zh-CN/docs/Web/HTML/Element/iframe
+            sandbox.sandbox = 'allow-scripts';
 
             if ('srcdoc' in sandbox) {
+                // chrome、firefox、safari 的 sandbox='allow-scripts' 特性只能使用 srcdoc
                 sandbox.srcdoc = srcdoc;
             } else {
-                this.sandbox.src = 'about:blank';
+                // IE6-Edge
                 contentDocument = sandbox.contentWindow.document;
                 contentDocument.open();
                 contentDocument.write(srcdoc);
                 contentDocument.close();
             }
+
+            return sandbox;
         },
+
+
+        // 向沙箱发送消息
+        _postMessage: function(message) {
+            var that = this;
+            var sandbox = this.sandbox;
+
+            if (this._sandboxReady || !('srcdoc' in sandbox)) {
+                if (window.JSON) {
+                    // IE8、IE9 只支持传递字符串
+                    message = JSON.stringify(message);
+                }
+                sandbox.contentWindow.postMessage(message, '*');
+            } else {
+                // 使用 iframe.srcdoc 需要等待加载完毕才可以进行 postMessage 操作
+                if (!sandbox.onload) {
+                    this._queue = [];
+                    sandbox.onload = function() {
+                        that._sandboxReady = true;
+                        for (var i = 0; i < that._queue.length; i++) {
+                            that._postMessage(that._queue[i]);
+                        }
+                        delete sandbox.onload;
+                        delete that._queue;
+                    };
+                }
+
+                this._queue.push(message);
+            }
+        },
+
+
 
         // 获取沙箱的预置代码
         // 注意：此函数不能有外部依赖
@@ -144,7 +182,36 @@
                 '</head>' +
                 '<body>' +
                 '<script>' +
-                '(' + (function(window) {
+                '(' + (function(window, parent, execScript, JSON, Document, document, body, createElement) {
+
+                    // IE6-IE9 不支持 sandbox
+                    // 采用改写全局对象的方式来来模拟：避免拿到父窗口句柄
+                    if (execScript) {
+                        var code = [];
+                        var blackList = window;
+                        var whiteList = {
+                            console: true,
+                            onmessage: true,
+                            postMessage: true,
+                            event: true
+                        };
+                        for (var key in blackList) {
+                            if (!whiteList[key]) {
+                                code.push('function ' + key + '(){}');
+                            }
+                        }
+                        code = code.join('');
+                        execScript(code); // jshint ignore:line
+                    }
+
+                    // IE9 不支持 sandbox 且 document 是常量，这里避免 cookie 等敏感信息被泄漏
+                    if (Document) {
+                        Object.keys(Document.prototype).forEach(function(key) {
+                            if (key !== 'close') {
+                                delete Document.prototype[key];
+                            }
+                        });
+                    }
 
 
                     // 向宿主发送消息
@@ -153,23 +220,23 @@
                             message.error = message.error.toString();
                         }
 
-                        if (window.JSON) {
+                        if (JSON) {
                             // IE8、IE9 只支持传递字符串
                             message = JSON.stringify(message);
                         }
 
-                        window.parent.postMessage(message, '*');
+                        parent.postMessage(message, '*');
                     }
 
 
                     // 接收来自宿主的消息
                     window.onmessage = function(event) {
+
                         // IE8
                         event = event || window.event;
-
                         var message = event.data;
 
-                        if (window.JSON) {
+                        if (JSON) {
                             // IE8、IE9 只支持传递字符串
                             message = JSON.parse(message);
                         }
@@ -225,7 +292,7 @@
                         url = ret + ((ret === url) ? (/\?/.test(url) ? '&' : '?') + '_=' + ts : '');
                         url = url + query;
 
-                        var script = document.createElement('script');
+                        var script = createElement.call(document, 'script');
 
                         //script.crossOrigin = true;
                         script.onload = script.onreadystatechange = function() {
@@ -235,7 +302,7 @@
                             if (isReady) {
 
                                 script.onload = script.onreadystatechange = null;
-                                document.body.removeChild(script);
+                                body.removeChild(script);
 
                                 if (callback) {
                                     callback(null);
@@ -249,7 +316,7 @@
                         };
 
                         script.src = url;
-                        document.body.appendChild(script);
+                        body.appendChild(script);
                     }
 
 
@@ -257,40 +324,12 @@
                         console.warn('JSONP.Sandbox:', message);
                     };
 
-
                 }).toString() +
-                ')(window)' +
+                ')('+ ['window', 'parent', 'window.execScript', 'window.JSON', 'window.Document',
+                    'document', 'document.body', 'document.createElement'].join(',') +')' +
                 '</script>' +
                 '</body>' +
                 '</html>';
-        },
-
-        // 向沙箱发送消息
-        _postMessage: function(message) {
-            var that = this;
-
-            if (this._sandboxReady || !('srcdoc' in this.sandbox)) {
-                if (window.JSON) {
-                    // IE8、IE9 只支持传递字符串
-                    message = JSON.stringify(message);
-                }
-                this.sandbox.contentWindow.postMessage(message, '*');
-            } else {
-                // 使用 iframe.srcdoc 需要等待加载完毕才可以进行 postMessage 操作
-                if (!this.sandbox.onload) {
-                    this._queue = [];
-                    this.sandbox.onload = function() {
-                        that._sandboxReady = true;
-                        for (var i = 0; i < that._queue.length; i++) {
-                            that._postMessage(that._queue[i]);
-                        }
-                        delete that.sandbox.onload;
-                        delete that._queue;
-                    };
-                }
-
-                this._queue.push(message);
-            }
         }
     };
 
