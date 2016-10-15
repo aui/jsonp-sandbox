@@ -1,59 +1,68 @@
-var sandbox = true;
+var code = 0;
 
 try {
     if (document.cookie) {
-        sandbox = false;
+        code = 1;
     }
 } catch(e) {}
 
 try {
     if (this.document.cookie) {
-        sandbox = false;
+        code = 2;
     }
 } catch(e) {}
 
 try {
     if (window.document.cookie) {
-        sandbox = false;
+        code = 3;
     }
 } catch(e) {}
 
 try {
     if (top.document.cookie) {
-        sandbox = false;
+        code = 4;
     }
 } catch(e) {}
 
 try {
     if (parent.document.cookie) {
-        sandbox = false;
+        code = 5;
     }
 } catch(e) {}
 
 try {
     if (opener.document.cookie) {
-        sandbox = false;
+        code = 6;
     }
 } catch(e) {}
 
 try {
     if (frames[0].document.cookie) {
-        sandbox = false;
+        code = 7;
     }
 } catch(e) {}
 
 try {
     if (self.document.cookie) {
-        sandbox = false;
+        code = 8;
     }
 } catch(e) {}
 
 try {
     top.document.title;
-    sandbox = false;
+    code = 9;
 } catch(e) {}
 
-if (sandbox) {
+
+try {
+    localStorage.setItem('test', '1');
+    if (localStorage.getItem('test') === '1') {
+        code = 10;
+    }
+} catch(e) {}
+
+
+if (code === 0) {
     jsonp_callback({
         name: '糖饼',
         weibo: 'http://weibo.com/planeart',
@@ -61,8 +70,9 @@ if (sandbox) {
     });
 } else {
     jsonp_callback({
-        sandbox: 'error'
+        sandbox: 'error',
+        code: code
     });
-    top.document.getElementById('sandbox') = false;
-    throw Error('沙箱失效，cookie 被泄漏');
+    top.document.getElementById('code') = false;
+    throw Error('沙箱失效!');
 }
