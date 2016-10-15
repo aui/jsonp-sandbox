@@ -1,21 +1,15 @@
 /*! jsonp-sandbox | https://github.com/aui/jsonp-sandbox */
-(function(window) {
+(function(window, HAS_SNADBOX) {
 
     'use strict';
-
-    // 标识通讯 token，避免安全漏洞
-    // target="_blank" 弹出的页面可以拿到 opener，从而有机会伪造消息
-    // @see http://www.zcfy.cc/article/1178
-    var _token = '#' + Math.random();
-    var _count = 0;
-    var _hasSandbox = window.HTMLIFrameElement ? 'sandbox' in HTMLIFrameElement.prototype : false;
 
     function Sandbox() {
         this.sandbox = this._createSandbox();
     }
 
-    // 存储所有回调函数
     Sandbox._callbacks = {};
+    Sandbox._count = 0;
+    Sandbox._token = '#' + Math.random();
 
     // 处理消息
     // 这里可能会接收到其他程序发送过来的消息
@@ -49,6 +43,7 @@
 
         /**
          * 请求数据
+         * @param   {object,string}    可选项
          */
         get: function(options) {
 
@@ -60,11 +55,11 @@
                 };
             }
 
-            _count++;
+            Sandbox._count++;
 
             var url = options.url;
             var key = options.key || 'callback';
-            var value = options.value || 'jsonp' + _count;
+            var value = options.value || 'jsonp' + Sandbox._count;
             var success = options.success || noop;
             var error = options.error || noop;
             var data = options.data || {};
@@ -88,7 +83,7 @@
             url = /\?/.test(url) ? url + '&' + params : url + '?' + params;
 
 
-            var id = _count + _token;
+            var id = Sandbox._count + Sandbox._token;
             Sandbox._callbacks[id] = [success, error];
 
             function noop() {}
@@ -121,14 +116,14 @@
             sandbox.style.display = 'none';
             target.appendChild(sandbox);
 
-            var srcdoc = this._getSandboxCode(_hasSandbox);
+            var srcdoc = this._getSandboxCode(HAS_SNADBOX);
 
             // 必须在 sandbox='allow-scripts' 设置之前拿到引用，否则 IE10/Edge 会拒绝访问
             var contentDocument = sandbox.contentWindow.document;
 
             // iframe sandbox @see https://developer.mozilla.org/zh-CN/docs/Web/HTML/Element/iframe
             // IE 调试程序模拟 IE8，sandbox 会生效，所以这里加了个判断
-            if (_hasSandbox) {
+            if (HAS_SNADBOX) {
                 sandbox.sandbox = 'allow-scripts';
             }
 
@@ -153,7 +148,7 @@
             var that = this;
             var sandbox = this.sandbox;
             var contentWindow = sandbox.contentWindow;
-            var sendMessage = _hasSandbox ? 'postMessage' : '__postMessage__';
+            var sendMessage = HAS_SNADBOX ? 'postMessage' : '__postMessage__';
 
             if (this._sandboxReady || !('srcdoc' in sandbox)) {
                 contentWindow[sendMessage](message, '*');
@@ -198,6 +193,7 @@
                 if (!hasSandbox && execScript) {
                     var code = [];
                     var blackList = window;
+                    blackList.ActiveXObject = true;
 
                     var whiteList = {
                         console: true
@@ -332,7 +328,7 @@
     };
 
 
-    if (_hasSandbox) {
+    if (HAS_SNADBOX) {
         window.addEventListener('message', Sandbox._onmessage, false);
     } else {
         window.__postMessage__ = function(message) {
@@ -365,4 +361,4 @@
     }
 
 
-})(window);
+})(window, window.HTMLIFrameElement ? 'sandbox' in HTMLIFrameElement.prototype : false);
