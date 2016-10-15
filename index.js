@@ -8,10 +8,7 @@
     // @see http://www.zcfy.cc/article/1178
     var _token = '#' + Math.random();
     var _count = 0;
-
-
-    function noop() {}
-
+    var _hasPostMessage = window.postMessage && window.JSON;
 
 
     function Sandbox() {
@@ -72,31 +69,44 @@
                 };
             }
 
+            _count++;
+
             var url = options.url;
             var key = options.key || 'callback';
             var value = options.value || 'jsonp' + _count;
             var success = options.success || noop;
             var error = options.error || noop;
             var data = options.data || {};
+            var cache = options.cache !== false;
+            var timeout = options.timeout || 0;
 
             var encode = window.encodeURIComponent;
+            var params = [];
 
-            var param = [];
             for (var k in data) {
-                param.push(encode(k) + '=' + encode(data[k]));
+                params.push(encode(k) + '=' + encode(data[k]));
             }
-            param = param.join('&');
-            url = /\?/.test(url) ? url + param : url + '?' + param;
 
-            _count++;
+            if (cache) {
+                params.push('_=' + (+new Date()));
+            }
+
+            params.push(encode(key) + '=' + encode(value));
+
+            params = params.join('&');
+            url = /\?/.test(url) ? url + '&' + params : url + '?' + params;
+
+
             var id = _count + _token;
             Sandbox._callbacks[id] = [success, error];
+
+            function noop() {}
 
             this._postMessage({
                 id: id,
                 url: url,
                 value: value,
-                key: key
+                timeout: timeout
             });
         },
 
@@ -175,20 +185,27 @@
 
 
         // 获取沙箱的预置代码
-        // 注意：此函数不能有外部依赖
         _getSandboxCode: function() {
             return '<html>' +
                 '<head>' +
                 '</head>' +
                 '<body>' +
                 '<script>' +
-                '(' + (function(window, parent, execScript, JSON, Document, document, body, createElement) {
+                /**
+                 * 沙箱内置脚本
+                 * 此函数会被转成字符串在沙箱内部运行，所以函数内部不能引用任何外部对象（闭包）
+                 */
+                '(' + (function(window, parent, execScript, postMessage, JSON, Document,
+                    setTimeout, clearTimeout, document, body, createElement) {
+
+                    var hasPostMessage = postMessage && JSON;
 
                     // IE6-IE9 不支持 sandbox
                     // 采用改写全局对象的方式来来模拟：避免拿到父窗口句柄
                     if (execScript) {
                         var code = [];
                         var blackList = window;
+
                         var whiteList = {
                             console: true,
                             onmessage: true,
@@ -204,7 +221,8 @@
                         execScript(code); // jshint ignore:line
                     }
 
-                    // IE9 不支持 sandbox 且 document 是常量，这里避免 cookie 等敏感信息被泄漏
+                    // IE9 不支持 sandbox 且 document 是常量无法改写
+                    // 删除 document 成员，避免 cookie 等敏感信息被泄漏
                     if (Document) {
                         Object.keys(Document.prototype).forEach(function(key) {
                             if (key !== 'close') {
@@ -225,7 +243,11 @@
                             message = JSON.stringify(message);
                         }
 
-                        parent.postMessage(message, '*');
+                        if (hasPostMessage) {
+                            parent.postMessage(message, '*');
+                        } else {
+                            parent.__postMessage__(message, '*');
+                        }
                     }
 
 
@@ -235,6 +257,7 @@
                         // IE8
                         event = event || window.event;
                         var message = event.data;
+                        var timer, loaded;
 
                         if (JSON) {
                             // IE8、IE9 只支持传递字符串
@@ -243,7 +266,7 @@
 
                         var value = message.value;
                         var url = message.url;
-                        var key = message.key;
+                        var timeout = message.timeout;
 
                         // 写入全局函数，跨站脚本将会运行此函数
                         window[value] = function(data) {
@@ -253,26 +276,40 @@
                         };
 
 
-                        // 处理错误
-                        function end(errors) {
-                            if (!errors && typeof message.response === 'undefined') {
-                                errors = new Error('Wrong format.');
+                        function end() {
+                            if (!loaded) {
+                                if (timeout) {
+                                    clearTimeout(timer);
+                                }
+                                postMessageToHost(message);
+                                loaded = true;
                             }
-
-                            if (errors) {
-                                message.error = errors;
-                            }
-
-                            postMessageToHost(message);
                         }
 
-                        getScript(url, end, '&' + encodeURIComponent(key) + '=' + encodeURIComponent(value));
+
+                        if (timeout) {
+                            timer = setTimeout(function() {
+                                message.error = new Error('Timeout.');
+                                end();
+                            }, timeout);
+                        }
+
+                        getScript(url, function() {
+                            if (typeof message.response === 'undefined') {
+                                message.error = new Error('Wrong format.');
+                            }
+
+                            end();
+                        }, function() {
+                            message.error = new Error('Failed to load: ' + url);
+                            end();
+                        });
                     };
 
 
                     // 针对旧版浏览器提供 postMessage 方法
                     // IE8: typeof window.postMessage === 'object'
-                    if (!window.postMessage) {
+                    if (!hasPostMessage) {
                         window.postMessage = function(message) {
                             window.onmessage({
                                 data: message
@@ -282,16 +319,7 @@
 
 
                     // 请求外部脚本
-                    function getScript(url, callback) {
-
-                        var query = arguments[2] || '';
-                        var ts = +new Date();
-                        var ret = url.replace(/([?&])_=[^&]*/, '$1_=' + ts);
-
-
-                        url = ret + ((ret === url) ? (/\?/.test(url) ? '&' : '?') + '_=' + ts : '');
-                        url = url + query;
-
+                    function getScript(url, success, error) {
                         var script = createElement.call(document, 'script');
 
                         //script.crossOrigin = true;
@@ -304,17 +332,12 @@
                                 script.onload = script.onreadystatechange = null;
                                 body.removeChild(script);
 
-                                if (callback) {
-                                    callback(null);
-                                }
+                                success();
                             }
 
                         };
 
-                        script.onerror = function() {
-                            callback(new Error('Failed to load: ' + script.src));
-                        };
-
+                        script.onerror = error;
                         script.src = url;
                         body.appendChild(script);
                     }
@@ -325,8 +348,9 @@
                     };
 
                 }).toString() +
-                ')('+ ['window', 'parent', 'window.execScript', 'window.JSON', 'window.Document',
-                    'document', 'document.body', 'document.createElement'].join(',') +')' +
+                ')(' + ['window', 'parent', 'window.execScript', 'window.postMessage', 'window.JSON', 'window.Document',
+                    'setTimeout', 'clearTimeout', 'document', 'document.body', 'document.createElement'
+                ].join(',') + ')' +
                 '</script>' +
                 '</body>' +
                 '</html>';
@@ -334,7 +358,7 @@
     };
 
 
-    if (window.postMessage) {
+    if (_hasPostMessage) {
         // 现代浏览器
         if (window.addEventListener) {
             window.addEventListener('message', Sandbox._onmessage, false);
@@ -342,9 +366,9 @@
         } else {
             window.attachEvent('onmessage', Sandbox._onmessage);
         }
-    } else if (!window.postMessage) {
+    } else {
         // <IE8
-        window.postMessage = function(message) {
+        window.__postMessage__ = function(message) {
             Sandbox._onmessage({
                 data: message
             });

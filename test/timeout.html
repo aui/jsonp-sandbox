@@ -8,17 +8,14 @@
 <pre id="log"></pre>
 <script>
 JSONP.get({
-    url: './index.js',
-    value: 'jsonp_callback',
+    url: 'http://www.google.com/test.js',
+    timeout: 8,
     data: {
         user: 'aui',
         tag: 'fe'
     },
-    success: function (data) {
-        document.getElementById('log').innerHTML = JSON.stringify(data, null, 4);
-    },
     error: function(errors) {
-        console.error(errors);
+        document.getElementById('log').innerHTML = errors;
     }
 });
 </script>
