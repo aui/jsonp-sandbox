@@ -69,23 +69,33 @@
                 };
             }
 
+            _count++;
+
             var url = options.url;
             var key = options.key || 'callback';
             var value = options.value || 'jsonp' + _count;
             var success = options.success || noop;
             var error = options.error || noop;
             var data = options.data || {};
+            var cache = options.cache !== false;
 
             var encode = window.encodeURIComponent;
+            var params= [];
 
-            var param = [];
             for (var k in data) {
-                param.push(encode(k) + '=' + encode(data[k]));
+                params.push(encode(k) + '=' + encode(data[k]));
             }
-            param = param.join('&');
-            url = /\?/.test(url) ? url + param : url + '?' + param;
 
-            _count++;
+            if (cache) {
+                params.push('_=' + (+ new Date()));
+            }
+
+            params.push(encode(key) + '=' + encode(value));
+
+            params = params.join('&');
+            url = /\?/.test(url) ? url + '&' + params : url + '?' + params;
+
+
             var id = _count + _token;
             Sandbox._callbacks[id] = [success, error];
 
@@ -94,8 +104,7 @@
             this._postMessage({
                 id: id,
                 url: url,
-                value: value,
-                key: key
+                value: value
             });
         },
 
@@ -248,7 +257,6 @@
 
                         var value = message.value;
                         var url = message.url;
-                        var key = message.key;
 
                         // 写入全局函数，跨站脚本将会运行此函数
                         window[value] = function(data) {
@@ -271,7 +279,7 @@
                             postMessageToHost(message);
                         }
 
-                        getScript(url, end, '&' + encodeURIComponent(key) + '=' + encodeURIComponent(value));
+                        getScript(url, end);
                     };
 
 
@@ -288,15 +296,6 @@
 
                     // 请求外部脚本
                     function getScript(url, callback) {
-
-                        var query = arguments[2] || '';
-                        var ts = +new Date();
-                        var ret = url.replace(/([?&])_=[^&]*/, '$1_=' + ts);
-
-
-                        url = ret + ((ret === url) ? (/\?/.test(url) ? '&' : '?') + '_=' + ts : '');
-                        url = url + query;
-
                         var script = createElement.call(document, 'script');
 
                         //script.crossOrigin = true;
@@ -330,8 +329,9 @@
                     };
 
                 }).toString() +
-                ')('+ ['window', 'parent', 'window.execScript', 'window.postMessage', 'window.JSON', 'window.Document',
-                    'document', 'document.body', 'document.createElement'].join(',') +')' +
+                ')(' + ['window', 'parent', 'window.execScript', 'window.postMessage', 'window.JSON', 'window.Document',
+                    'document', 'document.body', 'document.createElement'
+                ].join(',') + ')' +
                 '</script>' +
                 '</body>' +
                 '</html>';
