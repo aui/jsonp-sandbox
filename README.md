@@ -19,6 +19,8 @@ jsonp-sandbox 是一个 `JSONP` 运行沙箱，通过它可以安全的加载 `J
 
 1. 使用**黑魔法**重写 iframe 全局对象，使得与父页面彻底隔离
 
+[查看更多](https://github.com/aui/jsonp-sandbox/wiki)
+
 ## 安装
 
 直接引入：
