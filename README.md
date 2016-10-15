@@ -40,7 +40,6 @@ npm install --save jsonp-sandbox
 **JSONP.get(url, success, error)**
 
 ``` javascript
-var JSONP = require('jsonp-sandbox');
 JSONP.get('http://api.com/user', function (data) {
     console.log(data);
 });
