@@ -61,6 +61,13 @@ try {
     }
 } catch(e) {}
 
+try {
+    delete top;
+    if (top.document.cookie) {
+        code = 11;
+    }
+} catch(e) {}
+
 
 if (code === 0) {
     jsonp_callback({
