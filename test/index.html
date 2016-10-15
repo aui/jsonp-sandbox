@@ -15,7 +15,10 @@ JSONP.get({
         tag: 'fe'
     },
     success: function (data) {
-        document.getElementById('log').innerHTML = JSON.stringify(data, null, 4);
+        if (window.JSON) {
+            data = JSON.stringify(data, null, 4);
+        }
+        document.getElementById('log').innerHTML = data;
     },
     error: function(errors) {
         console.error(errors);

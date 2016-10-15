@@ -5,21 +5,22 @@
 <script src="../index.js"></script>
 </head>
 <body>
-<div>Sandbox: <span id="sandbox">true</span></div>
 <pre id="log"></pre>
 <script>
-document.cookie = 'hello world';
-
-JSONP.get({
-    url: './xss.js',
+var sandbox = new JSONP.Sandbox();
+sandbox.get({
+    url: './index.js',
     value: 'jsonp_callback',
+    data: {
+        user: 'aui',
+        tag: 'fe'
+    },
     success: function (data) {
-
         if (window.JSON) {
             data = JSON.stringify(data, null, 4);
         }
-
         document.getElementById('log').innerHTML = data;
+        sandbox.destroy();
     },
     error: function(errors) {
         console.error(errors);

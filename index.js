@@ -8,8 +8,7 @@
     // @see http://www.zcfy.cc/article/1178
     var _token = '#' + Math.random();
     var _count = 0;
-    var _hasPostMessage = window.postMessage && window.JSON;
-
+    var _hasSandbox = window.HTMLIFrameElement ? 'sandbox' in HTMLIFrameElement.prototype : false;
 
     function Sandbox() {
         this.sandbox = this._createSandbox();
@@ -19,20 +18,12 @@
     Sandbox._callbacks = {};
 
     // 处理消息
+    // 这里可能会接收到其他程序发送过来的消息
     Sandbox._onmessage = function(event) {
-        // IE8
-        event = event || window.event;
-
         var message = event.data;
 
-        // IE
-        if (window.JSON && typeof message === 'string') {
-            try {
-                // IE8、IE9 只支持传递字符串
-                message = JSON.parse(message);
-            } catch (e) {
-                message = {};
-            }
+        if (typeof message !== 'object' || message === null) {
+            return;
         }
 
         var id = message.id;
@@ -130,13 +121,17 @@
             sandbox.style.display = 'none';
             target.appendChild(sandbox);
 
-            var srcdoc = this._getSandboxCode();
+            var srcdoc = this._getSandboxCode(_hasSandbox);
 
             // 必须在 sandbox='allow-scripts' 设置之前拿到引用，否则 IE10/Edge 会拒绝访问
             var contentDocument = sandbox.contentWindow.document;
 
             // iframe sandbox @see https://developer.mozilla.org/zh-CN/docs/Web/HTML/Element/iframe
-            sandbox.sandbox = 'allow-scripts';
+            // IE 调试程序模拟 IE8，sandbox 会生效，所以这里加了个判断
+            if (_hasSandbox) {
+                sandbox.sandbox = 'allow-scripts';
+            }
+
 
             if ('srcdoc' in sandbox) {
                 // chrome、firefox、safari 的 sandbox='allow-scripts' 特性只能使用 srcdoc
@@ -157,13 +152,11 @@
         _postMessage: function(message) {
             var that = this;
             var sandbox = this.sandbox;
+            var contentWindow = sandbox.contentWindow;
+            var sendMessage = _hasSandbox ? 'postMessage' : '__postMessage__';
 
             if (this._sandboxReady || !('srcdoc' in sandbox)) {
-                if (window.JSON) {
-                    // IE8、IE9 只支持传递字符串
-                    message = JSON.stringify(message);
-                }
-                sandbox.contentWindow.postMessage(message, '*');
+                contentWindow[sendMessage](message, '*');
             } else {
                 // 使用 iframe.srcdoc 需要等待加载完毕才可以进行 postMessage 操作
                 if (!sandbox.onload) {
@@ -185,189 +178,163 @@
 
 
         // 获取沙箱的预置代码
-        _getSandboxCode: function() {
-            return '<html>' +
-                '<head>' +
-                '</head>' +
-                '<body>' +
-                '<script>' +
-                /**
-                 * 沙箱内置脚本
-                 * 此函数会被转成字符串在沙箱内部运行，所以函数内部不能引用任何外部对象（闭包）
-                 */
-                '(' + (function(window, parent, execScript, postMessage, JSON, Document,
-                    setTimeout, clearTimeout, document, body, createElement) {
+        _getSandboxCode: function(hasSandbox) {
 
-                    var hasPostMessage = postMessage && JSON;
+            var inject = [hasSandbox, 'window', 'parent', 'window.execScript',
+                'window.Document', 'setTimeout', 'clearTimeout',
+                'document', 'document.body', 'document.createElement'
+            ];
 
-                    // IE6-IE9 不支持 sandbox
-                    // 采用改写全局对象的方式来来模拟：避免拿到父窗口句柄
-                    if (execScript) {
-                        var code = [];
-                        var blackList = window;
+            /**
+             * 沙箱内部控制脚本
+             * 此函数会被转成字符串在沙箱内部运行，所以函数内部不能引用任何外部对象（闭包）
+             */
+            var script = function(hasSandbox, window, parent, execScript,
+                Document, setTimeout, clearTimeout,
+                document, body, createElement) {
 
-                        var whiteList = {
-                            console: true,
-                            onmessage: true,
-                            postMessage: true,
-                            event: true
-                        };
-                        for (var key in blackList) {
-                            if (!whiteList[key]) {
-                                code.push('function ' + key + '(){}');
-                            }
-                        }
-                        code = code.join('');
-                        execScript(code); // jshint ignore:line
-                    }
+                // IE6-IE9 不支持 sandbox
+                // 采用改写全局对象的方式来来模拟：避免拿到父窗口句柄
+                if (!hasSandbox && execScript) {
+                    var code = [];
+                    var blackList = window;
 
-                    // IE9 不支持 sandbox 且 document 是常量无法改写
-                    // 删除 document 成员，避免 cookie 等敏感信息被泄漏
-                    if (Document) {
-                        Object.keys(Document.prototype).forEach(function(key) {
-                            if (key !== 'close') {
-                                delete Document.prototype[key];
-                            }
-                        });
-                    }
+                    var whiteList = {
+                        console: true
+                    };
 
-
-                    // 向宿主发送消息
-                    function postMessageToHost(message) {
-                        if (message.error) {
-                            message.error = message.error.toString();
-                        }
-
-                        if (JSON) {
-                            // IE8、IE9 只支持传递字符串
-                            message = JSON.stringify(message);
-                        }
-
-                        if (hasPostMessage) {
-                            parent.postMessage(message, '*');
-                        } else {
-                            parent.__postMessage__(message, '*');
+                    for (var key in blackList) {
+                        if (!whiteList[key]) {
+                            code.push('function ' + key + '(){}');
                         }
                     }
+                    code = code.join('');
+                    execScript(code); // jshint ignore:line
+                }
+
+                // IE9 不支持 sandbox 且 document 是常量无法改写
+                // 删除 document 成员，避免 cookie 等敏感信息被泄漏
+                if (Document) {
+                    Object.keys(Document.prototype).forEach(function(key) {
+                        if (key !== 'close') {
+                            delete Document.prototype[key];
+                        }
+                    });
+                }
 
 
-                    // 接收来自宿主的消息
-                    window.onmessage = function(event) {
+                // 请求外部脚本
+                function getScript(url, success, error) {
+                    var script = createElement.call(document, 'script');
 
-                        // IE8
-                        event = event || window.event;
-                        var message = event.data;
-                        var timer, loaded;
+                    //script.crossOrigin = true;
+                    script.onload = script.onreadystatechange = function() {
 
-                        if (JSON) {
-                            // IE8、IE9 只支持传递字符串
-                            message = JSON.parse(message);
+                        var isReady = !script.readyState || /loaded|complete/.test(script.readyState);
+
+                        if (isReady) {
+
+                            script.onload = script.onreadystatechange = null;
+                            body.removeChild(script);
+
+                            success();
                         }
 
-                        var value = message.value;
-                        var url = message.url;
-                        var timeout = message.timeout;
+                    };
 
-                        // 写入全局函数，跨站脚本将会运行此函数
-                        window[value] = function(data) {
-                            message.response = data;
-                            // IE delete 会报“SCRIPT445: 对象不支持此操作”
-                            window[value] = null;
-                        };
+                    script.onerror = error;
+                    script.src = url;
+                    body.appendChild(script);
+                }
 
 
-                        function end() {
-                            if (!loaded) {
-                                if (timeout) {
-                                    clearTimeout(timer);
-                                }
-                                postMessageToHost(message);
-                                loaded = true;
-                            }
-                        }
+                window.onerror = function(message) {
+                    console.warn('JSONP.Sandbox:', message);
+                };
 
 
-                        if (timeout) {
-                            timer = setTimeout(function() {
-                                message.error = new Error('Timeout.');
-                                end();
-                            }, timeout);
-                        }
+                // 向宿主发送消息
+                function postMessageToHost(message) {
+                    var sendMessage = hasSandbox ? 'postMessage' : '__postMessage__';
+                    if (message.error) {
+                        message.error = message.error.toString();
+                    }
 
-                        getScript(url, function() {
-                            if (typeof message.response === 'undefined') {
-                                message.error = new Error('Wrong format.');
-                            }
+                    parent[sendMessage](message, '*');
+                }
 
-                            end();
-                        }, function() {
-                            message.error = new Error('Failed to load: ' + url);
-                            end();
-                        });
+
+                // 接收来自宿主的消息
+                function onmessage(event) {
+
+                    var message = event.data;
+                    var timer, loaded;
+
+                    var value = message.value;
+                    var url = message.url;
+                    var timeout = message.timeout;
+
+                    // 写入全局函数，跨站脚本将会运行此函数
+                    window[value] = function(data) {
+                        message.response = data;
+                        // IE delete 会报“SCRIPT445: 对象不支持此操作”
+                        window[value] = null;
                     };
 
 
-                    // 针对旧版浏览器提供 postMessage 方法
-                    // IE8: typeof window.postMessage === 'object'
-                    if (!hasPostMessage) {
-                        window.postMessage = function(message) {
-                            window.onmessage({
-                                data: message
-                            });
-                        };
-                    }
-
-
-                    // 请求外部脚本
-                    function getScript(url, success, error) {
-                        var script = createElement.call(document, 'script');
-
-                        //script.crossOrigin = true;
-                        script.onload = script.onreadystatechange = function() {
-
-                            var isReady = !script.readyState || /loaded|complete/.test(script.readyState);
-
-                            if (isReady) {
-
-                                script.onload = script.onreadystatechange = null;
-                                body.removeChild(script);
-
-                                success();
+                    function end() {
+                        if (!loaded) {
+                            if (timeout) {
+                                clearTimeout(timer);
                             }
-
-                        };
-
-                        script.onerror = error;
-                        script.src = url;
-                        body.appendChild(script);
+                            postMessageToHost(message);
+                            loaded = true;
+                        }
                     }
 
 
-                    window.onerror = function(message) {
-                        console.warn('JSONP.Sandbox:', message);
-                    };
+                    if (timeout) {
+                        timer = setTimeout(function() {
+                            message.error = new Error('Timeout.');
+                            end();
+                        }, timeout);
+                    }
 
-                }).toString() +
-                ')(' + ['window', 'parent', 'window.execScript', 'window.postMessage', 'window.JSON', 'window.Document',
-                    'setTimeout', 'clearTimeout', 'document', 'document.body', 'document.createElement'
-                ].join(',') + ')' +
-                '</script>' +
-                '</body>' +
-                '</html>';
+                    getScript(url, function() {
+                        if (typeof message.response === 'undefined') {
+                            message.error = new Error('Wrong format.');
+                        }
+
+                        end();
+                    }, function() {
+                        message.error = new Error('Failed to load: ' + url);
+                        end();
+                    });
+                }
+
+
+                if (hasSandbox) {
+                    window.addEventListener('message', onmessage, false);
+                } else {
+                    window.__postMessage__ = function(message) {
+                        onmessage({
+                            data: message
+                        });
+                    };
+                }
+
+            };
+
+            return '<html><head></head><body><script>' +
+                '(' + script.toString() + ')(' + inject.join(',') + ')' +
+                '</script></body></html>';
         }
     };
 
 
-    if (_hasPostMessage) {
-        // 现代浏览器
-        if (window.addEventListener) {
-            window.addEventListener('message', Sandbox._onmessage, false);
-            // IE8
-        } else {
-            window.attachEvent('onmessage', Sandbox._onmessage);
-        }
+    if (_hasSandbox) {
+        window.addEventListener('message', Sandbox._onmessage, false);
     } else {
-        // <IE8
         window.__postMessage__ = function(message) {
             Sandbox._onmessage({
                 data: message

@@ -95,7 +95,7 @@ JSONP.get({
 
 ## 兼容性
 
-IE8+（IE6、IE7 没有机器测试）、Chrome、Firefox、Safari
+IE5+、Edge、Chrome、Firefox、Safari
 
 [npm-image]: https://img.shields.io/npm/v/jsonp-sandbox.svg
 [npm-url]: https://npmjs.org/package/jsonp-sandbox
