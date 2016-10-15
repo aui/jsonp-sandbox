@@ -54,6 +54,7 @@ JSONP.get('http://api.com/user', function (data) {
 * `success` 成功回调
 * `error` 失败回调
 * `data` URL 附加的请求数据
+* `timeout` 超时
 
 例如：
 
