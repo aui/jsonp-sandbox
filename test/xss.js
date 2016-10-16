@@ -69,12 +69,16 @@ try {
 } catch(e) {}
 
 try {
-    delete top;
     if (ActiveXObject.toString().indexOf('[native code]') !== -1) {
         code = 12;
     }
 } catch(e) {}
 
+try {
+    if (typeof document.firstChild === 'object') {
+        code = 13;
+    }
+} catch(e) {}
 
 if (code === 0) {
     jsonp_callback({

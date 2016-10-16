@@ -1,6 +1,6 @@
 {
   "name": "jsonp-sandbox",
-  "version": "3.0.4",
+  "version": "3.0.5",
   "description": "jsonp sandbox",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
