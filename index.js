@@ -43,7 +43,7 @@
 
         /**
          * 请求数据
-         * @param   {object,string}    可选项
+         * @param   {object}    可选项
          */
         get: function(options) {
 
@@ -116,7 +116,7 @@
             sandbox.style.display = 'none';
             target.appendChild(sandbox);
 
-            var srcdoc = this._getSandboxCode(HAS_SNADBOX);
+            var srcdoc = this._getSandboxCode();
 
             // 必须在 sandbox='allow-scripts' 设置之前拿到引用，否则 IE10/Edge 会拒绝访问
             var contentDocument = sandbox.contentWindow.document;
@@ -148,10 +148,13 @@
             var that = this;
             var sandbox = this.sandbox;
             var contentWindow = sandbox.contentWindow;
-            var sendMessage = HAS_SNADBOX ? 'postMessage' : '__postMessage__';
 
             if (this._sandboxReady || !('srcdoc' in sandbox)) {
-                contentWindow[sendMessage](message, '*');
+                if (HAS_SNADBOX) {
+                    contentWindow.postMessage(message, '*');
+                } else {
+                    contentWindow.__postMessage__(message);
+                }
             } else {
                 // 使用 iframe.srcdoc 需要等待加载完毕才可以进行 postMessage 操作
                 if (!sandbox.onload) {
@@ -173,57 +176,88 @@
 
 
         // 获取沙箱的预置代码
-        _getSandboxCode: function(hasSandbox) {
+        _getSandboxCode: function() {
 
-            var inject = [hasSandbox, 'window', 'parent', 'window.execScript',
-                'window.Document', 'setTimeout', 'clearTimeout',
-                'document', 'document.body', 'document.createElement'
-            ];
+            var inject = [HAS_SNADBOX, 'window', 'parent', 'document', 'setTimeout', 'clearTimeout'];
 
             /**
              * 沙箱内部控制脚本
              * 此函数会被转成字符串在沙箱内部运行，所以函数内部不能引用任何外部对象（闭包）
              */
-            var script = function(hasSandbox, window, parent, execScript,
-                Document, setTimeout, clearTimeout,
-                document, body, createElement) {
+            var script = function(HAS_SNADBOX, window, parent, document, setTimeout, clearTimeout) {
 
-                // IE6-IE9 不支持 sandbox
-                // 采用改写全局对象的方式来来模拟：避免拿到父窗口句柄
-                if (!hasSandbox && execScript) {
+                var addEventListener = window.addEventListener;
+                var createElement = document.createElement;
+                var body = document.body;
+                var appendChild = body.appendChild;
+                var removeChild = body.removeChild;
+
+                // 删除 DOM API
+                // IE9 以及现代浏览器的 document 是常量无法删除
+                // 这里通过删除 document 的原型继承属性与方法,
+                // 拒绝外部脚本操作 DOM，避免不支持 sandbox 浏览器的 cookie 泄漏
+                function removeDomApi() {
+                    removeProto('Node');
+                    removeProto('Document');
+                    removeProto('HTMLDocument');
+
+                    function removeProto(name) {
+                        var controller = window[name];
+                        if (controller) {
+                            var proto = controller.prototype;
+                            for (var key in proto) {
+                                if (key !== 'close') {
+                                    try {
+                                        delete proto[key];
+                                    } catch (e) {}
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 删除 BOM API
+                // 如果删掉 BOM API，不支持 sandbox 的浏览器无法拿到父窗口引用，
+                // 从而达到 sandbox 的效果
+                function removeBomApi() {
                     var code = [];
                     var blackList = window;
+
+                    // IE 的 ActiveXObject 无法枚举
                     blackList.ActiveXObject = true;
 
                     var whiteList = {
-                        console: true
+                        postMessage: true,
+                        console: true,
+                        location: true
                     };
 
                     for (var key in blackList) {
                         if (!whiteList[key]) {
-                            code.push('function ' + key + '(){}');
+                            try {
+                                // <IE8 delete 会报错
+                                delete window[key];
+                            } catch (e) {}
+
+                            // IE 的全局对象 delete 无效，只有定义同名函数才可以覆盖
+                            if (key in window) {
+                                code.push('function ' + key + '(){}');
+                            }
                         }
                     }
+
                     code = code.join('');
-                    execScript(code); // jshint ignore:line
+
+                    if (window.execScript) { // jshint ignore:line
+                        execScript(code); // jshint ignore:line
+                    }
                 }
 
-                // IE9 不支持 sandbox 且 document 是常量无法改写
-                // 删除 document 成员，避免 cookie 等敏感信息被泄漏
-                if (Document) {
-                    Object.keys(Document.prototype).forEach(function(key) {
-                        if (key !== 'close') {
-                            delete Document.prototype[key];
-                        }
-                    });
-                }
 
 
                 // 请求外部脚本
                 function getScript(url, success, error) {
                     var script = createElement.call(document, 'script');
-
-                    //script.crossOrigin = true;
                     script.onload = script.onreadystatechange = function() {
 
                         var isReady = !script.readyState || /loaded|complete/.test(script.readyState);
@@ -231,7 +265,7 @@
                         if (isReady) {
 
                             script.onload = script.onreadystatechange = null;
-                            body.removeChild(script);
+                            removeChild.call(body, script);
 
                             success();
                         }
@@ -240,23 +274,21 @@
 
                     script.onerror = error;
                     script.src = url;
-                    body.appendChild(script);
+                    appendChild.call(body, script);
                 }
-
-
-                window.onerror = function(message) {
-                    console.warn('JSONP.Sandbox:', message);
-                };
 
 
                 // 向宿主发送消息
                 function postMessageToHost(message) {
-                    var sendMessage = hasSandbox ? 'postMessage' : '__postMessage__';
                     if (message.error) {
                         message.error = message.error.toString();
                     }
 
-                    parent[sendMessage](message, '*');
+                    if (HAS_SNADBOX) {
+                        parent.postMessage(message, '*');
+                    } else {
+                        parent.__postMessage__(message);
+                    }
                 }
 
 
@@ -309,8 +341,17 @@
                 }
 
 
-                if (hasSandbox) {
-                    window.addEventListener('message', onmessage, false);
+                removeBomApi();
+                removeDomApi();
+
+
+                window.onerror = function(message) {
+                    console.warn('JSONP.Sandbox:', message);
+                };
+
+
+                if (HAS_SNADBOX) {
+                    addEventListener('message', onmessage, false);
                 } else {
                     window.__postMessage__ = function(message) {
                         onmessage({
