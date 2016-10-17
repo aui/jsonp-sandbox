@@ -1,3 +1,4 @@
+'use strict';
 var code = 0;
 
 try {
@@ -62,7 +63,7 @@ try {
 } catch(e) {}
 
 try {
-    delete top;
+    delete window.top;
     if (top.document.cookie) {
         code = 11;
     }
@@ -78,6 +79,10 @@ try {
     if (typeof document.firstChild === 'object') {
         code = 13;
     }
+} catch(e) {}
+
+try {
+    window.location = './inc/proxy.html';
 } catch(e) {}
 
 if (code === 0) {
