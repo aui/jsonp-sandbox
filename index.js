@@ -47,6 +47,10 @@
          */
         get: function(options) {
 
+            if (!this.sandbox) {
+                throw new Error('JSONP.Sandbox has been destroyed.');
+            }
+
             if (typeof options === 'string') {
                 options = {
                     url: options,
@@ -358,6 +362,14 @@
                             data: message
                         });
                     };
+
+                    // 禁止沙箱内跳转新地址
+                    // IE9 浏览器 location 变量无法覆盖，新页面可以使用 top.location 来改变父页面地址
+                    if (addEventListener) {
+                        addEventListener('unload', function() {
+                            location.href = 'about:blank';
+                        });
+                    }
                 }
 
             };
