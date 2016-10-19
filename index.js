@@ -227,8 +227,12 @@
                     var code = [];
                     var blackList = window;
 
-                    // IE 的 ActiveXObject 无法枚举
+                    // 如果发起请求，可能泄漏 cookie
+                    blackList.Image = true;
                     blackList.ActiveXObject = true;
+                    blackList.XMLHttpRequest = true;
+                    blackList.execScript = true;
+
 
                     var whiteList = {
                         postMessage: true,
