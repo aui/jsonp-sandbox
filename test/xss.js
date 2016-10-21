@@ -96,6 +96,6 @@ if (code === 0) {
         sandbox: 'error',
         code: code
     });
-    top.document.getElementById('code') = false;
+    top.document.getElementById('code').innerHTML = false;
     throw Error('沙箱失效!');
 }
