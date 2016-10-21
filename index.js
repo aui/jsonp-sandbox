@@ -1,9 +1,10 @@
 /*! jsonp-sandbox | https://github.com/aui/jsonp-sandbox */
-(function(window, HAS_SNADBOX) {
+(function(window, HTML5_SANDBOX) {
 
     'use strict';
 
     function Sandbox() {
+        this._messageQueue = [];
         this.sandbox = this._createSandbox();
     }
 
@@ -114,6 +115,7 @@
 
         // 创建沙箱
         _createSandbox: function() {
+            var that = this;
             var sandbox = document.createElement('iframe');
             var target = document.body || document.documentElement;
 
@@ -127,7 +129,7 @@
 
             // iframe sandbox @see https://developer.mozilla.org/zh-CN/docs/Web/HTML/Element/iframe
             // IE 调试程序模拟 IE8，sandbox 会生效，所以这里加了个判断
-            if (HAS_SNADBOX) {
+            if (HTML5_SANDBOX) {
                 sandbox.sandbox = 'allow-scripts';
             }
 
@@ -135,12 +137,17 @@
             if ('srcdoc' in sandbox) {
                 // chrome、firefox、safari 的 sandbox='allow-scripts' 特性只能使用 srcdoc
                 sandbox.srcdoc = srcdoc;
+                sandbox.onload = function() {
+                    sandbox.onload = null;
+                    that._onready(sandbox);
+                };
             } else {
                 // IE6-Edge
                 contentDocument = sandbox.contentWindow.document;
                 contentDocument.open();
                 contentDocument.write(srcdoc);
                 contentDocument.close();
+                this._onready(sandbox);
             }
 
             return sandbox;
@@ -149,48 +156,44 @@
 
         // 向沙箱发送消息
         _postMessage: function(message) {
-            var that = this;
-            var sandbox = this.sandbox;
+            this._messageQueue.push(message);
+        },
+
+
+        _onready: function(sandbox) {
             var contentWindow = sandbox.contentWindow;
 
-            if (this._sandboxReady || !('srcdoc' in sandbox)) {
-                if (HAS_SNADBOX) {
+            var send = function(message) {
+                if (HTML5_SANDBOX) {
                     contentWindow.postMessage(message, '*');
                 } else {
                     contentWindow.__postMessage__(message);
                 }
-            } else {
-                // 使用 iframe.srcdoc 需要等待加载完毕才可以进行 postMessage 操作
-                if (!sandbox.onload) {
-                    this._queue = [];
-                    sandbox.onload = function() {
-                        that._sandboxReady = true;
-                        for (var i = 0; i < that._queue.length; i++) {
-                            that._postMessage(that._queue[i]);
-                        }
-                        delete sandbox.onload;
-                        delete that._queue;
-                    };
-                }
+            };
 
-                this._queue.push(message);
+            for (var i = 0; i < this._messageQueue.length; i++) {
+                send(this._messageQueue[i]);
             }
-        },
 
+            delete this._messageQueue;
+            this._postMessage = send;
+        },
 
 
         // 获取沙箱的预置代码
         _getSandboxCode: function() {
 
-            var inject = [HAS_SNADBOX, 'window', 'parent', 'document', 'setTimeout', 'clearTimeout'];
+            var inject = [HTML5_SANDBOX, 'window', 'parent', 'document', 'setTimeout', 'clearTimeout'];
 
             /**
              * 沙箱内部控制脚本
              * 此函数会被转成字符串在沙箱内部运行，所以函数内部不能引用任何外部对象（闭包）
              */
-            var script = function(HAS_SNADBOX, window, parent, document, setTimeout, clearTimeout) {
+            var script = function(HTML5_SANDBOX, window, parent, document, setTimeout, clearTimeout) {
 
+                var execScript = window.execScript; // jshint ignore:line
                 var addEventListener = window.addEventListener;
+                var attachEvent = window.attachEvent;
                 var createElement = document.createElement;
                 var body = document.body;
                 var appendChild = body.appendChild;
@@ -256,7 +259,7 @@
 
                     code = code.join('');
 
-                    if (window.execScript) { // jshint ignore:line
+                    if (execScript) { // jshint ignore:line
                         execScript(code); // jshint ignore:line
                     }
                 }
@@ -292,7 +295,7 @@
                         message.error = message.error.toString();
                     }
 
-                    if (HAS_SNADBOX) {
+                    if (HTML5_SANDBOX) {
                         parent.postMessage(message, '*');
                     } else {
                         parent.__postMessage__(message);
@@ -358,7 +361,7 @@
                 };
 
 
-                if (HAS_SNADBOX) {
+                if (HTML5_SANDBOX) {
                     addEventListener('message', onmessage, false);
                 } else {
                     window.__postMessage__ = function(message) {
@@ -368,12 +371,16 @@
                     };
 
                     // 禁止沙箱内跳转新地址
-                    // IE9 浏览器 location 变量无法覆盖，新页面可以使用 top.location 来改变父页面地址
+                    // location 变量无法覆盖，新页面可以使用 top.location 来改变父页面地址
                     if (addEventListener) {
-                        addEventListener('unload', function() {
-                            location.href = 'about:blank';
-                        });
+                        addEventListener('unload', killSandbox);
+                    } else {
+                        attachEvent('onunload', killSandbox);
                     }
+                }
+
+                function killSandbox() {
+                    location.href = 'about:blank';
                 }
 
             };
@@ -385,7 +392,7 @@
     };
 
 
-    if (HAS_SNADBOX) {
+    if (HTML5_SANDBOX) {
         window.addEventListener('message', Sandbox._onmessage, false);
     } else {
         window.__postMessage__ = function(message) {
