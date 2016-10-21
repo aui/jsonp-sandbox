@@ -193,6 +193,7 @@
 
                 var execScript = window.execScript; // jshint ignore:line
                 var addEventListener = window.addEventListener;
+                var attachEvent = window.attachEvent;
                 var createElement = document.createElement;
                 var body = document.body;
                 var appendChild = body.appendChild;
@@ -370,12 +371,16 @@
                     };
 
                     // 禁止沙箱内跳转新地址
-                    // IE9 浏览器 location 变量无法覆盖，新页面可以使用 top.location 来改变父页面地址
+                    // location 变量无法覆盖，新页面可以使用 top.location 来改变父页面地址
                     if (addEventListener) {
-                        addEventListener('unload', function() {
-                            location.href = 'about:blank';
-                        });
+                        addEventListener('unload', killSandbox);
+                    } else {
+                        attachEvent('onunload', killSandbox);
                     }
+                }
+
+                function killSandbox() {
+                    location.href = 'about:blank';
                 }
 
             };
